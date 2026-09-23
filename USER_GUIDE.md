@@ -291,17 +291,15 @@ The Settings screen allows you to configure the device's behavior. There are a f
   - "OFF" (default) - Disable the fix
   - "ON" - Enable the fix
 
-> [!NOTE]
-> A battery charging indicator is shown on the battery icon whenever the device is actively charging.
-
 #### 3.6.2 Reader
 
 - **Reader Font Family**: Choose the font used for reading:
   
   - "Noto Serif" (default) - Google's serif font
   - "Noto Sans" - Google's sans-serif font
+  - Installed SD card families
 
-- **Reader Font Size**: Adjust the text size for reading; options are "Small", "Medium" (default), "Large", or "X Large".
+- **Reader Font Size**: Choose a point size. Built-in and direct TTF/OTF/TTC fonts offer 12, 14, 16, and 18 pt. A `.cpfont` family offers the sizes installed for that family.
 
 - **Reader Line Spacing**: Adjust the spacing between lines; options are "Tight", "Normal" (default), or "Wide".
 
@@ -612,13 +610,13 @@ Transparent overlay files are intentionally separate from normal sleep images. R
 
 ### 3.8 Custom Fonts (SD Card)
 
-CrossPlay supports loading additional fonts from the SD card, extending beyond the two built-in families (Noto Serif, Noto Sans). Custom fonts can include extended Unicode coverage, enabling CJK (Chinese, Japanese, Korean) and other scripts.
+CrossPlay supports loading additional fonts from the SD card, extending beyond the two built-in families (Noto Serif, Noto Sans). Custom fonts can include extended Unicode coverage, enabling CJK (Chinese, Japanese, Korean) and other scripts. If your device has external RAM, you can copy `.ttf`, `.otf`, and `.ttc` files directly; otherwise, convert them to `.cpfont` files first.
 
 There are three ways to install fonts:
 
 1. **Download from device (recommended):** Go to **Settings -> System -> Manage Fonts**, browse the available font families, and select one to download over Wi-Fi.
-2. **Upload via web interface:** While in **File Transfer** mode, open the web UI in a browser and navigate to the **Fonts** tab to upload `.cpfont` files.
-3. **Manual SD card copy:** Download font files from the [crosspoint-fonts repository](https://github.com/crosspoint-reader/crosspoint-fonts) and copy them to `/.fonts/` (preferred) or `/fonts/` on your SD card.
+2. **Upload via web interface:** While in **File Transfer** mode, open the web UI and use the **Fonts** tab to upload `.cpfont` files. The Fonts tab does not accept TTF/OTF/TTC files.
+3. **Manual SD card copy:** Copy `.cpfont` families from the [crosspoint-fonts repository](https://github.com/crosspoint-reader/crosspoint-fonts) to `/.fonts/` or `/fonts/`. If your device have external RAM, you can also copy TTF/OTF/TTC files there without conversion.
 
 Once installed, custom fonts appear in **Settings → Reader → Font Family** alongside the built-in fonts.
 
