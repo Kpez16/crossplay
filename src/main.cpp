@@ -1023,7 +1023,8 @@ void loop() {
   // that had already happened. This one was worse than the web server's twin:
   // LOG_INF ships in gh_release_* at LOG_LEVEL=1, so it was erasing crash tails
   // on users' devices, not just on desks. Heap trend at 60s is just as useful.
-  if (Serial && millis() - lastMemPrint >= 60000) {
+  // The ROM console does not depend on Arduino USB CDC's connection state.
+  if ((Serial || FREEINK_LOG_TRANSPORT == FREEINK_LOG_TRANSPORT_ROM_PRINTF) && millis() - lastMemPrint >= 60000) {
     const auto heap = HalMemory::getInternalHeap();
     LOG_DBG("MEM", "Free: %zu bytes, Total: %zu bytes, Min Free: %zu bytes, MaxAlloc: %zu bytes", heap.freeBytes,
             heap.totalBytes, heap.minFreeBytes, heap.largestBlockBytes);
