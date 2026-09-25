@@ -82,7 +82,6 @@ static constexpr uint64_t kTimerWakeMicros = static_cast<uint64_t>(CROSSPLAY_TIM
 
 #include "components/UITheme.h"
 #include "fontIds.h"
-#include "images/LoadingIcon.h"
 #include "network/DeviceReport.h"
 #include "nvs.h"
 #include "platform/UsbSerialJtagHandoff.h"
@@ -851,24 +850,14 @@ void setup() {
       APP_STATE.showBootScreen = true;
       APP_STATE.saveToFile();
       if (Storage.exists(SLEEP_FRAME_FILE) && loadSleepFrameBuffer()) {
-        const bool useDifferentialRefresh = gpio.deviceIsX3();
-        if (useDifferentialRefresh) {
+        if (gpio.deviceIsX3()) {
           // begin() clears the X3 controller RAM, so restore the saved frame as
-          // the baseline before replacing the moon with the loading icon.
+          // the baseline for the first reader paint without refreshing the panel.
           renderer.cleanupGrayscaleWithFrameBuffer();
-        }
-
-        const auto pageHeight = renderer.getScreenHeight();
-        renderer.drawImage(LoadingIcon, 0, pageHeight - LOADINGICON_HEIGHT, LOADINGICON_WIDTH, LOADINGICON_HEIGHT);
-        if (useDifferentialRefresh) {
-          renderer.displayGrayscaleBase(HalDisplay::FAST_REFRESH);
           allowFastInitialReaderRefresh = true;
-        } else {
-          renderer.displayBuffer(HalDisplay::HALF_REFRESH);
         }
       } else {
-        // The first Home/Reader paint is followed by an explicit clean refresh
-        // because the panel still physically shows the sleep image.
+        // Clean the retained sleep image as part of the first Home paint.
         needsWakeRefresh = true;
       }
       break;
