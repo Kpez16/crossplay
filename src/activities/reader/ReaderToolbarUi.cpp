@@ -39,6 +39,8 @@ constexpr int kToolCount = 3;
 constexpr int kPanelHeightPercent = 62;
 // Cap the sheet may grow to when rounding the list area up to a whole row.
 constexpr int kPanelHeightMaxPercent = 72;
+// Landscape has less vertical room; leave a narrow page strip for tap-to-dismiss.
+constexpr int kLandscapePanelHeightPercent = 88;
 }  // namespace
 
 ReaderToolbarUi::ReaderToolbarUi(GfxRenderer& renderer) : UiAppHost(renderer) {}
@@ -242,13 +244,20 @@ void ReaderToolbarUi::buildPanel(UiScreen& screen) {
   // host-tests/readersheet pins both boards. Card #546.
   fui::ListProps gapProbe;
   gapProbe.rowHeight = rowH;
+  // Dense rows (many items, e.g. the TTF size list) keep the theme's tight gap;
+  // everything else takes the SDK's resolved (touch-aware) gap.
+  if (model_.denseRows) gapProbe.rowGap = tokens.listRowGap;
   const int16_t rowGap = screen.resolveListProps(gapProbe).rowGap;
   const int16_t grabberBand =
       static_cast<int16_t>(sheetProps.grabberMargin + sheetProps.grabberHeight + sheetProps.grabberInset);
   const int16_t chrome =
       static_cast<int16_t>(grabberBand + titleH + tokens.spaceMd + tokens.spaceSm + kToolRowH + tokens.spaceSm);
+  // Landscape has less vertical room: size to a fixed share with no rounding headroom.
+  const bool landscape = safe.width > safe.height;
+  const int heightPercent = landscape ? kLandscapePanelHeightPercent : kPanelHeightPercent;
+  const int heightMaxPercent = landscape ? kLandscapePanelHeightPercent : kPanelHeightMaxPercent;
   const readerpanel::Geometry geo = readerpanel::panelGeometry(safe.height, rowH, rowGap, chrome, model_.itemCount,
-                                                               kPanelHeightPercent, kPanelHeightMaxPercent);
+                                                               heightPercent, heightMaxPercent);
   screen.sheet(sheetProps, static_cast<int16_t>(geo.sheetHeight));
   // No blanket side inset: Screen::list() draws in the content band, and the
   // scroll track must reach the sheet's edge like a full-screen list's does.
@@ -274,6 +283,7 @@ void ReaderToolbarUi::buildPanel(UiScreen& screen) {
   listProps_.action = ACTION_ROW;
   listProps_.inputMask = fui::InputTouch;  // physical buttons stay with the reader
   listProps_.rowHeight = rowH;
+  listProps_.rowGap = rowGap;
   // The label column starts flush with the panel title (no list-side padding
   // on top of the sheet's own inset). Body-size text: small reads condensed
   // and the taller row doubles as the tap target.
