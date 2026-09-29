@@ -51,6 +51,8 @@ def _workspace(start):
     while True:
         if os.path.exists(os.path.join(d, ".xteink-workspace")):
             return d
+        # A root is its own parent: "/" here, "C:\" on Windows, which a
+        # test for "/" alone never reaches.
         parent = os.path.dirname(d)
         if parent == d:
             return None
