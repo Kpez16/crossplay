@@ -448,10 +448,6 @@ void MappedInputManager::swallowNextReleaseOfHeldButtons() const {
           static_cast<unsigned>(heldMask));
 }
 
-bool MappedInputManager::wasAnyPressed() const { return gpio.wasAnyPressed(); }
-
-bool MappedInputManager::wasAnyReleased() const { return gpio.wasAnyReleased(); }
-
 unsigned long MappedInputManager::getHeldTime() const {
   // A mapped action has its own meaning, independent of the contact duration.
   if (homeAction != HomeButtonAction::Ignore) return 0;

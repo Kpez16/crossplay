@@ -39,6 +39,7 @@ class HttpDownloader {
   // apart. Not thread-safe by design: one fetch runs at a time.
   static int lastStatus();
 
+  // Kept for the fork's apps_local callers (Trivia, Wordle, Xkcd); upstream dropped it as dead code.
   static bool fetchUrl(const std::string& url, std::string& outContent, const std::string& username = "",
                        const std::string& password = "");
 
