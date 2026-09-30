@@ -25,6 +25,10 @@ class HomeActivity final : public Activity {
   // fork-local seam: drawn row spacing, so the touch grid hit-tests the same
   // pitch it drew.
   int menuSpacingRendered = 0;
+  bool hasPlugins = false;
+  // The home "library" slot (index 2) shows Plugins when any plugin is
+  // installed, otherwise OPDS. The index converters gate on its presence.
+  bool hasLibrarySlot() const { return hasPlugins || hasOpdsServers; }
   bool hasContinueReading = false;
   bool coverRendered = false;      // Track if cover has been rendered once
   bool coverBufferStored = false;  // Track if cover buffer is stored
@@ -78,6 +82,7 @@ class HomeActivity final : public Activity {
   void onSettingsOpen();
   void onFileTransferOpen();
   void onOpdsBrowserOpen();
+  void onPluginsOpen();
 
   int getMenuItemCount() const;
   int upstreamMenuRows() const;  // fork-local seam
