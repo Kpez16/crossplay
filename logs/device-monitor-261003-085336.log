@@ -1,0 +1,39 @@
+[132899] [DBG] [MEM] Free: 111992 bytes, Total: 247676 bytes, Min Free: 111500 bytes, MaxAlloc: 61428 bytes
+[132899] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4128mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4128mV I=0mA
+[192902] [DBG] [MEM] Free: 111992 bytes, Total: 247676 bytes, Min Free: 111500 bytes, MaxAlloc: 61428 bytes
+[192902] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4127mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4127mV I=0mA
+[252905] [DBG] [MEM] Free: 111992 bytes, Total: 247676 bytes, Min Free: 111500 bytes, MaxAlloc: 61428 bytes
+[252905] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[312908] [DBG] [MEM] Free: 111992 bytes, Total: 247676 bytes, Min Free: 111500 bytes, MaxAlloc: 61428 bytes
+[312908] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4125mV I=0mA
+[372911] [DBG] [MEM] Free: 111992 bytes, Total: 247676 bytes, Min Free: 111500 bytes, MaxAlloc: 61428 bytes
+[372911] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4125mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4125mV I=0mA
+[432914] [DBG] [MEM] Free: 111992 bytes, Total: 247676 bytes, Min Free: 111500 bytes, MaxAlloc: 61428 bytes
+[432914] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4124mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4124mV I=0mA
+[492917] [DBG] [MEM] Free: 111992 bytes, Total: 247676 bytes, Min Free: 111500 bytes, MaxAlloc: 61428 bytes
+[492917] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4124mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4124mV I=0mA
+[552920] [DBG] [MEM] Free: 111992 bytes, Total: 247676 bytes, Min Free: 111500 bytes, MaxAlloc: 61428 bytes
+[552920] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4123mV I=0mA
+[586307] [DBG] [PWR] Restoring normal CPU frequency
+[586319] [DBG] [MAIN] Power button held 14ms, sleeping
+[586354] [DBG] [ACT] Exiting activity: Home
+[586354] [DBG] [ACT] Entering activity: Sleep
+[586356] [DBG] [GFX] Time = 583032 ms from clearScreen to displayBuffer
+[586842] [DBG] [SLP] Loading: /sleep.bmp
+[586842] [DBG] [SLP] bitmap 480 x 800, screen 540 x 960
+[586842] [DBG] [SLP] drawing to 30 x 80

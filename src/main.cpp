@@ -1322,8 +1322,13 @@ void loop() {
   // While on external power the percent climbs with no user interaction to
   // repaint it (gauge boards like the X4 Pro report SoC continuously), so poll
   // for a change once a minute. Off-charger the percent moves too slowly to
-  // justify unsolicited e-ink refreshes.
-  if (gpio.isUsbConnected()) {
+  // justify unsolicited e-ink refreshes. Also poll (regardless of USB state)
+  // while the gauge's one-time data-memory provisioning hasn't succeeded yet:
+  // isUsbConnected() on a gauge-charger board (e.g. LilyGo T5 S3) can read
+  // false once the charger reaches termination at 100%, which would otherwise
+  // silently retire this as the only automatic retry for a provisioning
+  // attempt that failed once near boot, for the rest of that boot.
+  if (gpio.isUsbConnected() || !powerManager.isBatteryGaugeProvisioned()) {
     static unsigned long lastBatteryPollTime = 0UL;
     static uint16_t lastBatteryPercent = 0xFFFF;
     if (millis() - lastBatteryPollTime >= 60000UL) {

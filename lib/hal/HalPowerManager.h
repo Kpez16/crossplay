@@ -38,6 +38,18 @@ class HalPowerManager {
   // Control CPU frequency for power saving
   void setPowerSaving(bool enabled);
 
+ private:
+  // Actually flips the CPU frequency (or leaves it alone). Caller must already
+  // hold modeMutex: setPowerSaving() and Lock both need the lock-mode check
+  // and the frequency change to happen as one atomic step. Without that, a
+  // setPowerSaving(true) racing a Lock's construction on the other core could
+  // read currentLockMode before the Lock takes effect and lower the CPU
+  // frequency mid-I2C-transaction, which corrupts the transfer (observed as
+  // sporadic ESP_ERR_INVALID_STATE from peripheral drivers, e.g. the battery
+  // gauge).
+  void applyFrequencyLocked(bool allowLowPower);
+
+ public:
   // Setup wake up GPIO and enter deep sleep
   // Should be called inside main loop() to handle the currentLockMode
   // `timerWakeMicros` arms an RTC timer beside the power button, so the device
@@ -53,6 +65,12 @@ class HalPowerManager {
 
   // Get battery percentage (range 0-100)
   uint16_t getBatteryPercentage() const;
+
+  // Pass-through to BatteryMonitor::isGaugeProvisioned() -- true once this
+  // boot's one-time gauge provisioning has succeeded (or needs none). No
+  // I2C. main.cpp uses this to keep retrying provisioning on a timer even
+  // while isUsbConnected() reports false (see that gate's own comment).
+  bool isBatteryGaugeProvisioned() const;
 
   // RAII helper class to manage power saving locks
   // Usage: create an instance of Lock in a scope to disable power saving, for example when running a task that needs

@@ -31,6 +31,27 @@ void HalPowerManager::begin() {
   assert(modeMutex != nullptr);
 }
 
+void HalPowerManager::applyFrequencyLocked(bool allowLowPower) {
+  if (allowLowPower && !isLowPower) {
+    LOG_DBG("PWR", "Going to low-power mode");
+    if (!setCpuFrequencyMhz(LOW_POWER_FREQ)) {
+      LOG_DBG("PWR", "Failed to set CPU frequency = %d MHz", LOW_POWER_FREQ);
+      return;
+    }
+    isLowPower = true;
+
+  } else if (!allowLowPower && isLowPower) {
+    LOG_DBG("PWR", "Restoring normal CPU frequency");
+    if (!setCpuFrequencyMhz(normalFreq)) {
+      LOG_DBG("PWR", "Failed to set CPU frequency = %d MHz", normalFreq);
+      return;
+    }
+    isLowPower = false;
+  }
+
+  // Otherwise, no change needed
+}
+
 void HalPowerManager::setPowerSaving(bool enabled) {
   if (normalFreq <= 0) {
     return;  // invalid state
@@ -42,28 +63,13 @@ void HalPowerManager::setPowerSaving(bool enabled) {
     enabled = false;
   }
 
-  // Note: We don't use mutex here to avoid too much overhead,
-  // it's not very important if we read a slightly stale value for currentLockMode
-  const LockMode mode = currentLockMode;
-
-  if (mode == None && enabled && !isLowPower) {
-    LOG_DBG("PWR", "Going to low-power mode");
-    if (!setCpuFrequencyMhz(LOW_POWER_FREQ)) {
-      LOG_DBG("PWR", "Failed to set CPU frequency = %d MHz", LOW_POWER_FREQ);
-      return;
-    }
-    isLowPower = true;
-
-  } else if ((!enabled || mode != None) && isLowPower) {
-    LOG_DBG("PWR", "Restoring normal CPU frequency");
-    if (!setCpuFrequencyMhz(normalFreq)) {
-      LOG_DBG("PWR", "Failed to set CPU frequency = %d MHz", normalFreq);
-      return;
-    }
-    isLowPower = false;
-  }
-
-  // Otherwise, no change needed
+  // Held across both the currentLockMode check and the actual frequency
+  // change: see applyFrequencyLocked() for why a lock-free read here is
+  // unsafe with Lock running on another task/core.
+  xSemaphoreTake(modeMutex, portMAX_DELAY);
+  const bool allowLowPower = enabled && currentLockMode == None;
+  applyFrequencyLocked(allowLowPower);
+  xSemaphoreGive(modeMutex);
 }
 
 [[noreturn]] void HalPowerManager::startDeepSleep(HalGPIO& gpio, const uint64_t timerWakeMicros) const {
@@ -159,6 +165,11 @@ uint16_t HalPowerManager::getBatteryPercentage() const {
   return _batteryCachedPercent / 10;
 }
 
+bool HalPowerManager::isBatteryGaugeProvisioned() const {
+  static const BatteryMonitor battery;
+  return battery.isGaugeProvisioned();
+}
+
 HalPowerManager::Lock::Lock() {
   xSemaphoreTake(powerManager.modeMutex, portMAX_DELAY);
   // Current limitation: only one lock at a time
@@ -168,12 +179,12 @@ HalPowerManager::Lock::Lock() {
   } else {
     powerManager.currentLockMode = NormalSpeed;
     valid = true;
+    // Pin normal frequency while still holding modeMutex, so this can't
+    // interleave with a concurrent setPowerSaving() on another task/core
+    // (see applyFrequencyLocked()).
+    powerManager.applyFrequencyLocked(false);
   }
   xSemaphoreGive(powerManager.modeMutex);
-  if (valid) {
-    // Immediately restore normal CPU frequency if currently in low-power mode
-    powerManager.setPowerSaving(false);
-  }
 }
 
 HalPowerManager::Lock::~Lock() {

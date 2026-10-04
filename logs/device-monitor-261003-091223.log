@@ -1,0 +1,20 @@
+OK DEVBRIDGE lilygo 1.6.5-lilygo_t5s3
+[143] [ERR] [GYR] SDK IMU not found
+[143] [INF] [CLK] SDK RTC found[144] [INF] [CLK] System time restored from RTC: 2026-10-03 14:12:25 UTC
+[144] [INF] [MAIN] Device: lilygo_t5s3
+[148] [SD] SD card detected
+[167] [DBG] [CPS] Settings loaded from file
+[176] [INF] [DEVREPORT] off; device df0e7f33..; nothing pending
+[182] [DBG] [RBS] Recent books loaded from file (4 entries)
+[189] [DBG] [OPS] Loaded 2 OPDS servers from file
+[189] [DBG] [UI] Using Lyra 3 Covers theme
+[194] [INF] [FrontlightMgr] apply: brightness=0 level=0 totalDuty=0 coolDuty=0 warmDuty=0 lit=0
+[195] [INF] [FrontlightMgr] begin: attached gpio=11 warm=-1 ok=1
+[195] [INF] [FrontlightMgr] apply: brightness=0 level=0 totalDuty=0 coolDuty=0 warmDuty=0 lit=0
+[195] [INF] [FrontlightMgr] apply: brightness=0 level=0 totalDuty=0 coolDuty=0 warmDuty=0 lit=0
+[195] [INF] [LIGHT] Frontlight up: 5% warm=50% off
+[195] [DBG] [MAIN] Wakeup reason: After USB Power
+[BATT] BQ27220 opStatus=0x3A25 ctrlStatus=0x0000 needsProvisioning=1
+[   245][E][esp32-hal-i2c-ng.c:275] i2cWrite(): i2c_master_transmit failed: [259] ESP_ERR_INVALID_STATE
+[BATT] BQ27220 provisioning stopped at: full access
+[BATT] BQ27220 data-memory provisioning: failed, retrying

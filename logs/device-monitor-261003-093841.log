@@ -1,0 +1,102 @@
+[3090] [INF] [PERF] Home repaint 767ms: queued 0ms, panel 568ms, ours 199ms
+[3091] [INF] [STACK] Home left 9840 bytes free of 16384
+[3108] [DBG] [GFX] Time = 16 ms from clearScreen to displayBuffer
+[5314] [DBG] [PWR] Going to low-power mode
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4127mV I=0mA
+[60013] [DBG] [MEM] Free: 111896 bytes, Total: 247652 bytes, Min Free: 111404 bytes, MaxAlloc: 61428 bytes
+[60013] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ27220 provisioning stopped at: unseal
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4127mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4127mV I=0mA
+[120058] [DBG] [MEM] Free: 111896 bytes, Total: 247652 bytes, Min Free: 111404 bytes, MaxAlloc: 61428 bytes
+[120058] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ27220 provisioning stopped at: unseal
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4127mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[180102] [DBG] [MEM] Free: 111896 bytes, Total: 247652 bytes, Min Free: 111404 bytes, MaxAlloc: 61428 bytes
+[180102] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ27220 provisioning stopped at: unseal
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[240147] [DBG] [MEM] Free: 111896 bytes, Total: 247652 bytes, Min Free: 111404 bytes, MaxAlloc: 61428 bytes
+[240147] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ27220 opStatus=0x0024 ctrlStatus=0x0000 needsProvisioning=1
+[240199][E][esp32-hal-i2c-ng.c:275] i2cWrite(): i2c_master_transmit failed: [259] ESP_ERR_INVALID_STATE
+[BATT] BQ27220 provisioning stopped at: full access
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[240324] [DBG] [LOOP] New max loop duration: 179 ms (activity: 1 ms)
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=3700mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[300167] [DBG] [MEM] Free: 111896 bytes, Total: 247652 bytes, Min Free: 111404 bytes, MaxAlloc: 61428 bytes
+[300167] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ27220 opStatus=0x0024 ctrlStatus=0x0040 needsProvisioning=1
+[300207][E][esp32-hal-i2c-ng.c:275] i2cWrite(): i2c_master_transmit failed: [259] ESP_ERR_INVALID_STATE
+[BATT] BQ27220 provisioning stopped at: full access
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=3700mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[360174] [DBG] [MEM] Free: 111896 bytes, Total: 247652 bytes, Min Free: 111404 bytes, MaxAlloc: 61428 bytes
+[360174] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ27220 opStatus=0x0024 ctrlStatus=0x0040 needsProvisioning=1
+[360213][E][esp32-hal-i2c-ng.c:275] i2cWrite(): i2c_master_transmit failed: [259] ESP_ERR_INVALID_STATE
+[BATT] BQ27220 provisioning stopped at: full access
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=3700mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[420180] [DBG] [MEM] Free: 111896 bytes, Total: 247652 bytes, Min Free: 111404 bytes, MaxAlloc: 61428 bytes
+[420180] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ27220 opStatus=0x0024 ctrlStatus=0x0040 needsProvisioning=1
+[420220][E][esp32-hal-i2c-ng.c:275] i2cWrite(): i2c_master_transmit failed: [259] ESP_ERR_INVALID_STATE
+[BATT] BQ27220 provisioning stopped at: full access
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=3700mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[480187] [DBG] [MEM] Free: 111896 bytes, Total: 247652 bytes, Min Free: 111404 bytes, MaxAlloc: 61428 bytes
+[480187] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ27220 opStatus=0x0024 ctrlStatus=0x0040 needsProvisioning=1
+[480227][E][esp32-hal-i2c-ng.c:275] i2cWrite(): i2c_master_transmit failed: [259] ESP_ERR_INVALID_STATE
+[BATT] BQ27220 provisioning stopped at: full access
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=3700mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[540194] [DBG] [MEM] Free: 111896 bytes, Total: 247652 bytes, Min Free: 111404 bytes, MaxAlloc: 61428 bytes
+[540194] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ27220 opStatus=0x0024 ctrlStatus=0x0040 needsProvisioning=1
+[540234][E][esp32-hal-i2c-ng.c:275] i2cWrite(): i2c_master_transmit failed: [259] ESP_ERR_INVALID_STATE
+[BATT] BQ27220 provisioning stopped at: full access
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=3700mV I=0mA
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=4126mV I=0mA
+[600201] [DBG] [MEM] Free: 111896 bytes, Total: 247652 bytes, Min Free: 111404 bytes, MaxAlloc: 61428 bytes
+[600201] [DBG] [MEM] PSRAM: Free: 6331476 bytes, Total: 8388608 bytes, Min Free: 6331476 bytes, MaxAlloc: 6291444 bytes
+[BATT] BQ27220 opStatus=0x0024 ctrlStatus=0x0040 needsProvisioning=1
+[600240][E][esp32-hal-i2c-ng.c:275] i2cWrite(): i2c_master_transmit failed: [259] ESP_ERR_INVALID_STATE
+[BATT] BQ27220 provisioning stopped at: full access
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[BATT] BQ25896 REG0B=0x5E VBUS_STAT=2 PG=1 CHRG_STAT=3 (done/terminated) | BQ27220 VBAT=3700mV I=0mA
+[602328] [DBG] [SLP] Auto-sleep triggered after 600000 ms of inactivity
+[602328] [DBG] [PWR] Restoring normal CPU frequency
+[602360] [DBG] [ACT] Exiting activity: Home
+[602360] [DBG] [ACT] Entering activity: Sleep
+[602362] [DBG] [GFX] Time = 599270 ms from clearScreen to displayBuffer
+[602850] [DBG] [SLP] Loading: /sleep.bmp
+[602850] [DBG] [SLP] bitmap 480 x 800, screen 540 x 960
+[602850] [DBG] [SLP] drawing to 30 x 80
+[603122] [DBG] [GFX] Time = 272 ms from clearScreen to displayBuffer
+[BATT] BQ27220 opStatus=0x0024 ctrlStatus=0x0040 needsProvisioning=1
+[604620][E][esp32-hal-i2c-ng.c:275] i2cWrite(): i2c_master_transmit failed: [259] ESP_ERR_INVALID_STATE
+[BATT] BQ27220 provisioning stopped at: full access
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[604747] [DBG] [WCS] Loaded 1 WiFi credentials from file
+[605898] [INF] [LIVE] joined 'CentralPerk'
+[605901] [LIVE] Failed to open file for reading: /.crosspoint/live-roots.pem
+[SecureClient] handshake ok (auto): TLSv1.3 / TLS_AES_128_GCM_SHA256 in 2166 ms
+[638487] [INF] [LIVE] nothing new; next wake 900s
+[BATT] BQ27220 opStatus=0x0024 ctrlStatus=0x0040 needsProvisioning=1
+[638575][E][esp32-hal-i2c-ng.c:275] i2cWrite(): i2c_master_transmit failed: [259] ESP_ERR_INVALID_STATE
+[BATT] BQ27220 provisioning stopped at: full access
+[BATT] BQ27220 data-memory provisioning: failed, retrying
+[638701] [DBG] [MAIN] Entering deep sleep
