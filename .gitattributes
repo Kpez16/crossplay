@@ -1,0 +1,3 @@
+# Patch files must keep LF: git apply --check fails on CRLF patches against
+# LF dependency sources (SdFat), which Windows autocrlf checkouts would produce.
+*.patch text eol=lf
