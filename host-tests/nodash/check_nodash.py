@@ -39,6 +39,12 @@ ALLOWED = {
     # was restored without its test, and once by a mechanical rewrite that
     # touched both.
     "server/read-bridge/tests/test_api.py",
+    # Saved diffs for the LilyGo T5S3 port. An em-dash in them is a context or
+    # added line copied from the file the diff targets (platformio.ini, a
+    # BoardConfig comment). Editing a diff line changes what the patch does
+    # or stops it applying, so the character stays.
+    "patch/0001-boardconfig-lilygo-gpio2-latch-fix.patch",
+    "patch/0002-crossplay-add-lilygo-t5s3-env.patch",
 }
 
 
