@@ -229,7 +229,7 @@ classify() {
     #                    test/ is reached by `pio run -t unit-tests`). They are
     #                    kept live on the build axis purely because that is the
     #                    answer today; see the note above about loosening it.
-    .gitignore)                                       echo "yes no"  ;;
+    .gitignore|.gitattributes)                        echo "yes no"  ;;
     nix/*|requirements.txt)                           echo "yes no"  ;;
     scripts_local/*)                                  echo "yes no"  ;;
     assets_local/*|sim-stubs/*|test/*)                echo "yes no"  ;;
