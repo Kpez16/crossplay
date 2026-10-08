@@ -250,6 +250,9 @@ classify() {
     # wording and exactly right about its firmware.
     docs/*|site/*|host-tests/*|server/*|tools_local/*) echo "no no"   ;;
     .github/*|.githooks/*|.skills/*|bin/*)            echo "no no"   ;;
+    # Saved diffs of the LilyGo T5S3 port, kept as a record. Nothing builds from
+    # them (grepped: no extra_script or workflow reads patch/).
+    patch/*)                                          echo "no no"   ;;
   esac
 }
 
