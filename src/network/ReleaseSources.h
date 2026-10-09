@@ -19,8 +19,7 @@
 namespace release_sources {
 
 constexpr const char* const kUrls[] = {
-    "https://crossplay.ma-r-s.com/api/latest",
-    "https://api.github.com/repos/ma-r-s/crossplay/releases/latest",
+    "https://api.github.com/repos/Kpez16/crossplay/releases/latest",
 };
 constexpr int kCount = static_cast<int>(sizeof(kUrls) / sizeof(kUrls[0]));
 
