@@ -110,3 +110,8 @@ dist/
 # build output captured to a file. Machine-local, never part of a commit.
 logs/
 build_log.txt
+
+# Release binaries built locally for upload to a GitHub release or Spark.
+# They belong on the release page, never in history.
+/crossplay-t5s3-full.bin
+/firmware-lilygo.bin

@@ -21,6 +21,12 @@ Everything above the marker is written by hand.
 
 <!-- releases, newest first -->
 
+### 0.1.0
+
+- First release for the LilyGo T5 E-Paper S3 Pro Lite
+- Built on CrossPlay 1.14.2
+- Fixes the board profile that drove GPIO2, the real-time clock's interrupt line, as a power latch
+
 ### 1.14.2
 
 - Sync CrossPoint develop (18 commits)
