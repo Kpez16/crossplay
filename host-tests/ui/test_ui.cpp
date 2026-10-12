@@ -19,6 +19,7 @@
 #include "../../src/apps_local/ShelfScreen.h"
 #include "../../src/apps_local/battleship/BattleshipScreens.h"
 #include "../../src/apps_local/checkers/CheckersScreens.h"
+#include "../../src/apps_local/tak/TakScreens.h"
 #include "../../src/apps_local/chess/ChessScreens.h"
 #include "../../src/apps_local/connectfour/ConnectFourScreens.h"
 #include "../../src/apps_local/connections/ConnectionsScreens.h"
@@ -7200,6 +7201,167 @@ void testTheCheckersHowToPagesAndEnds() {
     CHECK(out.target.drew(progress));
     CHECK(out.tap(240, 300).action == checkui::ActionHowToNext);
   }
+}
+
+// --- tak -------------------------------------------------------------------
+
+template <typename Model, void (*Build)(toybox::Screen&, const Model&)>
+void buildTak(Rendered& out, const Model& model, const fui::DeviceContext& ctx = device()) {
+  const fui::InputSnapshot noInput{};
+  toybox::Frame frame(out.target, ctx, noInput, out.interactions);
+  toybox::Screen screen(frame, toybox::themeTokens());
+  Build(screen, model);
+}
+
+void testTheTakBoardGeometryIsOneInverse() {
+  fui::DeviceContext sizes[3] = {device(), device(), device()};
+  sizes[1].width = 540;
+  sizes[1].height = 960;
+  sizes[2].width = 960;
+  sizes[2].height = 540;
+  for (const fui::DeviceContext& ctx : sizes) {
+    const takui::Layout layout = takui::layoutFor(ctx);
+    CHECK(layout.cell > 40);
+    const fui::Rect board = takui::boardRect(layout);
+    CHECK(board.x >= 0 && board.right() <= ctx.width && board.bottom() <= ctx.height);
+    CHECK(board.y >= toybox::kChromeHeight);
+    CHECK(layout.panel.width > 200 && layout.panel.height >= 180);
+    CHECK(layout.panel.right() <= ctx.width && layout.panel.bottom() <= ctx.height);
+    if (layout.sideways) {
+      CHECK(layout.panel.x >= board.right());
+    } else {
+      CHECK(layout.panel.y >= board.bottom());
+    }
+    for (int index = 0; index < tak::kCells; ++index) {
+      const fui::Rect box = takui::cellRect(layout, index);
+      int hit = -1;
+      CHECK(takui::cellAt(layout, box.x + box.width / 2, box.y + box.height / 2, hit) && hit == index);
+      CHECK(takui::cellAt(layout, box.x, box.y, hit) && hit == index);
+      CHECK(takui::cellAt(layout, box.right() - 1, box.bottom() - 1, hit) && hit == index);
+    }
+    int hit = -1;
+    CHECK(!takui::cellAt(layout, board.x - 1, board.y, hit));
+    CHECK(!takui::cellAt(layout, board.right(), board.y, hit));
+    CHECK(!takui::cellAt(layout, board.x, board.bottom(), hit));
+  }
+}
+
+void testTheTakMenuOffersItsTwoDoors() {
+  takui::MenuModel model;
+  Rendered out;
+  buildTak<takui::MenuModel, takui::buildMenu>(out, model);
+  CHECK(out.target.drew("TAK"));
+  CHECK(out.target.drew("PLAY"));
+  CHECK(out.target.drew("TWO PLAYERS"));
+  CHECK(out.has(takui::ActionMenuRow));
+  CHECK(!out.interactions.overflowed());
+}
+
+void testTheTakBoardSaysWhoseMoveAndWhatItOffers() {
+  tak::Game game;
+  game.plyNumber = 2;
+  tak::Turn turn;
+  takui::BoardModel model;
+  model.game = &game;
+  model.turn = &turn;
+
+  Rendered out;
+  buildTak<takui::BoardModel, takui::buildBoard>(out, model);
+  CHECK(out.target.drew("YOUR MOVE"));
+  CHECK(out.target.drew("FLAT"));
+  CHECK(out.target.drew("WALL"));
+  CHECK(out.target.drew("CAP"));
+  CHECK(out.has(takui::ActionBoard));
+  CHECK(out.has(takui::ActionKind));
+  CHECK(!out.interactions.overflowed());
+
+  tak::Game opening;
+  model.game = &opening;
+  Rendered swap;
+  buildTak<takui::BoardModel, takui::buildBoard>(swap, model);
+  CHECK(swap.target.drew("PLACE A BLACK FLAT FOR THEM"));
+  CHECK(!swap.has(takui::ActionKind));
+
+  game.board[tak::at(1, 1)].height = 3;
+  game.board[tak::at(1, 1)].colors = 0;
+  tak::tapCell(game, turn, tak::at(1, 1));
+  model.game = &game;
+  Rendered hand;
+  buildTak<takui::BoardModel, takui::buildBoard>(hand, model);
+  CHECK(hand.target.drew("IN HAND  1"));
+  CHECK(hand.has(takui::ActionPutBack));
+  CHECK(!hand.has(takui::ActionKind));
+
+  tak::Turn idle;
+  tak::Game theirs;
+  theirs.plyNumber = 3;
+  theirs.toMove = tak::Color::Black;
+  model.game = &theirs;
+  model.turn = &idle;
+  Rendered waiting;
+  buildTak<takui::BoardModel, takui::buildBoard>(waiting, model);
+  CHECK(waiting.target.drew("THINKING"));
+  CHECK(!waiting.has(takui::ActionKind));
+  CHECK(!waiting.has(takui::ActionPutBack));
+
+  model.opponent = tak::Opponent::Human;
+  Rendered twoSeat;
+  buildTak<takui::BoardModel, takui::buildBoard>(twoSeat, model);
+  CHECK(twoSeat.target.drew("BLACK TO MOVE"));
+}
+
+void testTheTakBoardFitsEverySize() {
+  tak::Game game;
+  game.plyNumber = 2;
+  tak::Turn turn;
+  takui::BoardModel model;
+  model.game = &game;
+  model.turn = &turn;
+  fui::DeviceContext sizes[2] = {device(), device()};
+  sizes[0].width = 540;
+  sizes[0].height = 960;
+  sizes[1].width = 960;
+  sizes[1].height = 540;
+  for (const fui::DeviceContext& ctx : sizes) {
+    Rendered out;
+    buildTak<takui::BoardModel, takui::buildBoard>(out, model, ctx);
+    CHECK(out.target.drew("YOUR MOVE"));
+    CHECK(out.target.drew("FLAT"));
+    CHECK(!out.interactions.overflowed());
+  }
+}
+
+void testTheTakResultNamesTheOutcomeFromYourSeat() {
+  tak::Game game;
+  game.over = true;
+  game.winner = tak::Color::White;
+  game.winnerByRoad = true;
+  takui::ResultModel model;
+  model.game = &game;
+
+  Rendered won;
+  buildTak<takui::ResultModel, takui::buildResult>(won, model);
+  CHECK(won.target.drew("YOU WIN"));
+  CHECK(won.target.drew("A ROAD ACROSS THE BOARD"));
+  CHECK(won.has(takui::ActionAgain));
+  CHECK(won.has(takui::ActionDone));
+
+  game.winner = tak::Color::Black;
+  game.winnerByRoad = false;
+  Rendered lost;
+  buildTak<takui::ResultModel, takui::buildResult>(lost, model);
+  CHECK(lost.target.drew("THEY WIN"));
+  CHECK(lost.target.drew("FLATS ON TOP  0 TO 0"));
+
+  model.opponent = tak::Opponent::Human;
+  Rendered black;
+  buildTak<takui::ResultModel, takui::buildResult>(black, model);
+  CHECK(black.target.drew("BLACK WINS"));
+
+  game.draw = true;
+  Rendered drawn;
+  buildTak<takui::ResultModel, takui::buildResult>(drawn, model);
+  CHECK(drawn.target.drew("A DRAW"));
 }
 
 // --- knucklebones ----------------------------------------------------------
@@ -14983,6 +15145,11 @@ int main() {
   testTheBoardSaysWhoseMoveAndWho();
   testTheResultNamesTheOutcomeFromYourSeat();
   testTheCheckersHowToPagesAndEnds();
+  testTheTakBoardGeometryIsOneInverse();
+  testTheTakMenuOffersItsTwoDoors();
+  testTheTakBoardSaysWhoseMoveAndWhatItOffers();
+  testTheTakBoardFitsEverySize();
+  testTheTakResultNamesTheOutcomeFromYourSeat();
   testShelfFolderDrawsItsOwnNameAndRows();
   testShelfFolderMarksNoRow();
   testToyboxRowGeometryIsWhatTheListActuallyUses();
