@@ -109,6 +109,39 @@ def require_all_applied():
     raise SystemExit("\n".join(lines))
 
 
+def _find(src, name):
+    """The simulator package's copy of a header, wherever it keeps it."""
+    direct = src / name
+    if direct.exists():
+        return direct
+    hits = sorted(src.rglob(name))
+    return hits[0] if hits else None
+
+
+def patch_structural(src, name, edit, what, marker):
+    """Like patch(), for a file whose exact text we have not seen.
+
+    `edit(text)` returns the new text, or None when the file has no place to put
+    the insertion. A missing file or place is collected and fails the build in
+    require_all_applied(), the same as an anchor that drifted.
+    """
+    path = _find(src, name)
+    if path is None:
+        _UNAPPLIED.append((what, f"{name} is not in the simulator package"))
+        print(f"[sim-catchup] !! DID NOT APPLY '{what}': {name} is missing")
+        return
+    text = path.read_text()
+    if marker in text:
+        return
+    new = edit(text)
+    if new is None or new == text:
+        _UNAPPLIED.append((what, f"no place to insert in {path.name}"))
+        print(f"[sim-catchup] !! DID NOT APPLY '{what}': no place to insert in {path.name}")
+        return
+    path.write_text(new)
+    print(f"[sim-catchup] applied: {what}")
+
+
 def main(env):
     src = (
         pathlib.Path(env.subst("$PROJECT_LIBDEPS_DIR"))
@@ -277,6 +310,217 @@ def main(env):
         "}",
         "HalFile::modificationTime (impl)",
         marker="HalFile::modificationTime",
+    )
+
+    # lib/hal gained readFileToString (read a whole small file, capped, into a
+    # std::string) and replaceFile (swap a staged .tmp over its target). The
+    # simulator ships its own HalStorage and shadows ours, so both stop the build
+    # until they exist here. Real implementations, composed from the simulator's
+    # own primitives the same way the device's are. The device's heap probe is
+    # omitted: a host process has no fragmented 8-bit heap to protect.
+    patch(
+        src / "HalStorage.h",
+        "  bool removeDir(const char *path);",
+        "  bool readFileToString(const char *moduleName, const std::string &path,\n"
+        "                        size_t cap, std::string &out);\n"
+        "  bool replaceFile(const char *tmpPath, const char *path);\n"
+        "  bool removeDir(const char *path);",
+        "HalStorage::readFileToString + replaceFile (header)",
+        marker="readFileToString",
+    )
+
+    patch(
+        src / "HalStorage.cpp",
+        "bool HalStorage::begin() {",
+        "bool HalStorage::readFileToString(const char *moduleName,\n"
+        "                                  const std::string &path, size_t cap,\n"
+        "                                  std::string &out) {\n"
+        "  out.clear();\n"
+        "  HalFile file;\n"
+        "  if (!openFileForRead(moduleName, path.c_str(), file))\n"
+        "    return false;\n"
+        "  if (file.isDirectory())\n"
+        "    return false;\n"
+        "  const size_t size = file.fileSize();\n"
+        "  if (size == 0 || size > cap)\n"
+        "    return false;\n"
+        "  out.resize(size);\n"
+        "  return file.read(&out[0], size) == static_cast<int>(size);\n"
+        "}\n"
+        "\n"
+        "bool HalStorage::replaceFile(const char *tmpPath, const char *path) {\n"
+        "  if (exists(path) && !remove(path))\n"
+        "    return false;\n"
+        "  return rename(tmpPath, path);\n"
+        "}\n"
+        "\n"
+        "bool HalStorage::begin() {",
+        "HalStorage::readFileToString + replaceFile (impl)",
+        marker="HalStorage::readFileToString",
+    )
+
+    # lib/hal's HalMemory gained PsramBuffer / allocatePsram (the home cover cache
+    # keeps its image out of internal RAM). The simulator ships its own HalMemory.h,
+    # which shadows ours. A host has no PSRAM to keep anything out of, so the
+    # honest implementation is plain malloc/free, inline in the header so no
+    # .cpp anchor is needed. Inserted at the top of the class body.
+    import re
+
+    def _halmemory(text):
+        m = re.search(r"class\s+HalMemory\s*\{\s*public:", text)
+        if not m:
+            return None
+        body = (
+            "\n  struct PsramDeleter {\n"
+            "    void operator()(uint8_t* buffer) const { std::free(buffer); }\n"
+            "  };\n"
+            "  using PsramBuffer = std::unique_ptr<uint8_t[], PsramDeleter>;\n"
+            "  static PsramBuffer allocatePsram(size_t bytes) {\n"
+            "    return PsramBuffer(static_cast<uint8_t*>(std::malloc(bytes)));\n"
+            "  }\n"
+        )
+        text = text[: m.end()] + body + text[m.end():]
+        cls = re.search(r"class\s+HalMemory\s*\{", text)
+        incl = "#include <cstddef>\n#include <cstdint>\n#include <cstdlib>\n#include <memory>\n\n"
+        return text[: cls.start()] + incl + text[cls.start():]
+
+    patch_structural(src, "HalMemory.h", _halmemory, "HalMemory::PsramBuffer (header)", "PsramBuffer")
+
+    # WifiPowerSaveGuard reads the current mode before disabling power-save so it
+    # can put it back. The simulator's esp_wifi.h has the setter but not the getter.
+    # There is no radio on a host, so the answer is "power-save already off".
+    def _wifi(text):
+        stub = (
+            "\ninline esp_err_t esp_wifi_get_ps(wifi_ps_type_t* type) {\n"
+            "  if (type) *type = WIFI_PS_NONE;\n"
+            "  return ESP_OK;\n"
+            "}\n"
+        )
+        if "#pragma once" in text:
+            return text.rstrip("\n") + "\n" + stub
+        i = text.rfind("#endif")
+        if i < 0:
+            return None
+        return text[:i] + stub.lstrip("\n") + "\n" + text[i:]
+
+    patch_structural(src, "esp_wifi.h", _wifi, "esp_wifi_get_ps (host stub)", "esp_wifi_get_ps")
+
+    # main.cpp keeps polling the battery while the fuel gauge's one-time
+    # provisioning has not succeeded (LilyGo T5 S3). The simulator's own
+    # HalPowerManager.h shadows lib/hal's and lacks the query. A host has no gauge
+    # to provision, so "provisioned" is the true answer and the poll falls back to
+    # the USB-connected rule. Inline, at the top of the class body.
+    def _powermanager(text):
+        m = re.search(r"class\s+HalPowerManager\s*\{.*?\bpublic:", text, re.S)
+        if not m:
+            return None
+        return (
+            text[: m.end()]
+            + "\n  bool isBatteryGaugeProvisioned() const { return true; }\n"
+            + text[m.end():]
+        )
+
+    patch_structural(
+        src,
+        "HalPowerManager.h",
+        _powermanager,
+        "HalPowerManager::isBatteryGaugeProvisioned (header)",
+        "isBatteryGaugeProvisioned",
+    )
+
+    # The 2026-09-30 sync brought CrossPoint's SD plugin system, whose web-server
+    # code the simulator package (20e73803, the same day) does not compile yet.
+    # Each gap is stubbed to the honest host answer rather than a pretend success.
+    # (Ported from the upstream project's sim_catchup.py, which has the same pin.)
+    #
+    # Arduino's WebServer keeps parsed request arguments in _currentArgs and
+    # _postArgs, and CrossPointHttpServer frees them between requests to hand
+    # the memory back to TLS. The host shim keeps its arguments in its own Impl,
+    # so these stay empty and freeing them is a no-op.
+    patch(
+        src / "WebServer.h",
+        "  HTTPUpload &upload();\n\nprivate:\n  struct Impl;",
+        "  HTTPUpload &upload();\n\n"
+        "protected:\n"
+        "  // sim-catchup: see scripts_local/sim_catchup.py (SD plugins, 2026-09-30).\n"
+        "  struct RequestArgument {\n    String key;\n    String value;\n  };\n"
+        "  RequestArgument *_currentArgs = nullptr;\n"
+        "  int _currentArgCount = 0;\n"
+        "  RequestArgument *_postArgs = nullptr;\n"
+        "  int _postArgsLen = 0;\n\n"
+        "private:\n  struct Impl;",
+        "WebServer request-argument members",
+        marker="_currentArgCount",
+    )
+    # The plugin endpoints walk a String character by character.
+    patch(
+        src / "WString.h",
+        "  size_t length() const { return s.length(); }",
+        "  size_t length() const { return s.length(); }\n"
+        "  const char *begin() const { return s.c_str(); }\n"
+        "  const char *end() const { return s.c_str() + s.length(); }",
+        "String::begin/end (range-for)",
+        marker="const char *begin() const",
+    )
+    # lib/TrustedTime sets the clock with settimeofday(); the ESP32 Arduino core
+    # reaches <sys/time.h> through Arduino.h, the simulator's does not.
+    patch(
+        src / "Arduino.h",
+        "#include <cstdlib>\n",
+        "#include <cstdlib>\n#include <sys/time.h>\n",
+        "Arduino.h includes <sys/time.h> (settimeofday)",
+        marker="<sys/time.h>",
+    )
+    # /api/status reports the factory MAC when the chip has one. A host has no
+    # eFuse, so the honest answer is "none" and the field is simply left out.
+    patch(
+        src / "HalGPIO.h",
+        "  bool hasTouch() const;",
+        "  bool hasTouch() const;\n"
+        "  bool getFactoryMac(char (&)[18]) const { return false; }",
+        "HalGPIO::getFactoryMac (none on a host)",
+        marker="getFactoryMac",
+    )
+
+    # ricmoo/QRCode's header declares its own `bool` for C ("typedef unsigned char
+    # bool; static const bool false...") under #ifndef __cplusplus. C23 -- the
+    # default of GCC 15, which a current WSL/Ubuntu ships -- makes bool, true and
+    # false keywords, so that block no longer compiles. <stdbool.h> is what the
+    # block was imitating and works under every C standard. Not a simulator
+    # package file: the library lives beside it in libdeps.
+    def _qrcode(text):
+        fixed = re.sub(
+            r"typedef\s+unsigned\s+char\s+bool;\s*"
+            r"static\s+const\s+bool\s+false\s*=\s*0;\s*"
+            r"static\s+const\s+bool\s+true\s*=\s*1;",
+            "#include <stdbool.h>",
+            text,
+            count=1,
+        )
+        return fixed if fixed != text else None
+
+    patch_structural(
+        src.parent.parent,
+        "qrcode.h",
+        _qrcode,
+        "QRCode bool typedef (C23 keyword clash)",
+        "stdbool.h",
+    )
+
+    # SIMULATOR_PANEL_960X540 sizes the simulated panel like the LilyGo T5 S3 Pro
+    # (960x540). The simulator keeps the panel size in two constexprs picked by a
+    # device flag; this adds a size-only override ahead of them, so the rest of the
+    # X4 Pro profile (buttons, touch, board config) is unchanged. Anchored on the
+    # pristine text and kept inside the replacement, per the rules at the top.
+    patch(
+        src / "EInkDisplay.h",
+        "#if defined(SIMULATOR_DEVICE_X3)\n  static constexpr uint16_t DISPLAY_WIDTH = 792;",
+        "#if defined(SIMULATOR_PANEL_960X540)\n"
+        "  static constexpr uint16_t DISPLAY_WIDTH = 960;\n"
+        "  static constexpr uint16_t DISPLAY_HEIGHT = 540;\n"
+        "#elif defined(SIMULATOR_DEVICE_X3)\n  static constexpr uint16_t DISPLAY_WIDTH = 792;",
+        "EInkDisplay 960x540 panel option",
+        marker="SIMULATOR_PANEL_960X540",
     )
 
     # CrossPoint 1.6.5 replaced the raw UTC-offset setting with real timezones,

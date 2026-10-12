@@ -12,7 +12,8 @@ set -uo pipefail
 # Resolve through the symlink: the workspace-root scripts/ entries are symlinks
 # to these, so BASH_SOURCE may be either path.
 SCRIPTS_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-ENV_NAME="simulator_x4_pro"
+# SIM_ENV picks another simulator env, e.g. SIM_ENV=simulator_t5 ./scripts_local/sim.sh
+ENV_NAME="${SIM_ENV:-simulator_x4_pro}"
 
 # The workspace is the directory holding every tree. Found by walking up for the
 # marker rather than by counting ".." levels, because firmware-next/ sits one
