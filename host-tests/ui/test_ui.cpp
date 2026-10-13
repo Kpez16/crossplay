@@ -7523,6 +7523,30 @@ void testTheTakMenuDoorsAreAllReachable() {
   }
 }
 
+void testTheTakMenuShowsEveryDoorAtEverySize() {
+  fui::DeviceContext sizes[3] = {device(), device(), device()};
+  sizes[1].width = 540;
+  sizes[1].height = 960;
+  sizes[2].width = 960;
+  sizes[2].height = 540;
+  for (const fui::DeviceContext& ctx : sizes) {
+    takui::MenuModel model;
+    model.hasSave = true;
+    model.saveNote = "3 BY 3, EASY, TURN 2";
+    Rendered out;
+    buildTak<takui::MenuModel, takui::buildMenu>(out, model, ctx);
+    // All four doors are registered at once: none has scrolled out of the list.
+    int doors = 0;
+    for (size_t i = 0; i < out.interactions.count(); ++i) {
+      if (out.interactions.data()[i].action == takui::ActionMenuRow) ++doors;
+    }
+    CHECK(doors == 4);
+    CHECK(out.target.drew("CONTINUE") && out.target.drew("NEW GAME") && out.target.drew("TWO PLAYERS") &&
+          out.target.drew("HOW TO PLAY"));
+    CHECK(out.target.drew("3 BY 3, EASY, TURN 2"));
+  }
+}
+
 // --- knucklebones ----------------------------------------------------------
 
 template <typename Model, void (*Build)(toybox::Screen&, const Model&)>
@@ -15307,6 +15331,7 @@ int main() {
   testTheTakBoardGeometryIsOneInverse();
   testTheTakMenuOffersItsTwoDoors();
   testTheTakMenuDoorsAreAllReachable();
+  testTheTakMenuShowsEveryDoorAtEverySize();
   testTheTakBoardSaysWhoseMoveAndWhatItOffers();
   testTheTakBoardFitsEverySize();
   testTheTakResultNamesTheOutcomeFromYourSeat();

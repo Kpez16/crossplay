@@ -225,16 +225,18 @@ void buildMenu(toybox::Screen& screen, const MenuModel& model) {
 
   fui::ListItem rows[static_cast<int>(MenuRow::Count)] = {};
   int count = 0;
-  const auto door = [&](const MenuRow which, const char* label, const char* subtitle) {
+  // No subtitles: a row with one is taller than the list's fixed row height,
+  // so the doors stopped fitting and the last of them scrolled out of view.
+  // What a saved game is says so on a line of its own, below.
+  const auto door = [&](const MenuRow which, const char* label) {
     rows[count].label = label;
-    rows[count].subtitle = subtitle;
     rows[count].actionValue = static_cast<int16_t>(which);
     ++count;
   };
-  if (model.hasSave) door(MenuRow::Continue, "CONTINUE", model.saveNote);
-  door(MenuRow::Play, model.hasSave ? "NEW GAME" : "PLAY", "AGAINST THE DEVICE");
-  door(MenuRow::TwoPlayers, "TWO PLAYERS", "PASS THE DEVICE");
-  door(MenuRow::HowTo, "HOW TO PLAY", nullptr);
+  if (model.hasSave) door(MenuRow::Continue, "CONTINUE");
+  door(MenuRow::Play, model.hasSave ? "NEW GAME" : "PLAY");
+  door(MenuRow::TwoPlayers, "TWO PLAYERS");
+  door(MenuRow::HowTo, "HOW TO PLAY");
 
   const int selected = model.selected < 0 ? 0 : model.selected;
   fui::ListProps list;
@@ -245,8 +247,15 @@ void buildMenu(toybox::Screen& screen, const MenuModel& model) {
   const int16_t listHeight =
       static_cast<int16_t>(count * toybox::kRowHeight + (count - 1) * toybox::kGutter / 2 + toybox::kGutter);
   const fui::Rect content = screen.contentRect();
-  const int16_t listTop = static_cast<int16_t>(content.bottom() - listHeight);
+  int16_t listTop = static_cast<int16_t>(content.bottom() - listHeight);
   screen.list(list, listHeight, fui::LayoutAnchor::Bottom);
+
+  if (model.hasSave && model.saveNote != nullptr) {
+    constexpr int16_t kNoteHeight = 24;
+    listTop = static_cast<int16_t>(listTop - kNoteHeight - toybox::kGutter / 2);
+    text(screen, fui::makeRect(content.x, listTop, content.width, kNoteHeight), model.saveNote, toybox::kTileFont,
+         fui::TextAlign::Center);
+  }
 
   // The ornament, centred in what the doors leave, as large as that room and
   // the width allow.
