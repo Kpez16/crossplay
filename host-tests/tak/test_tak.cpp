@@ -733,6 +733,176 @@ void testTheOpponentBeatsARandomMoverConvincingly() {
   CHECK(wins > losses * 5);
 }
 
+
+// --- the 3x3 board and the opponent's levels --------------------------------
+
+Game smallGame() {
+  Game game;
+  reset(game, kSmallSize);
+  game.plyNumber = 2;
+  return game;
+}
+
+void testASmallBoardHasThePublishedPieceCounts() {
+  Game game;
+  reset(game, kSmallSize);
+  CHECK(game.size == 3);
+  CHECK(game.reserve[0].flats == 10 && game.reserve[0].capstones == 0);
+  CHECK(game.reserve[1].flats == 10 && game.reserve[1].capstones == 0);
+  Game standard;
+  reset(standard);
+  CHECK(standard.size == 5);
+  CHECK(standard.reserve[0].flats == 21 && standard.reserve[0].capstones == 1);
+  // A size the app does not offer is the standard board, not a broken one.
+  reset(game, 4);
+  CHECK(game.size == 5);
+}
+
+void testOnlyTheSmallBoardsSquaresArePlayable() {
+  Game game = smallGame();
+  CHECK(canPlace(game, at(2, 2), PieceKind::Flat));
+  CHECK(!canPlace(game, at(3, 0), PieceKind::Flat));
+  CHECK(!canPlace(game, at(0, 3), PieceKind::Flat));
+  CHECK(!canPlace(game, at(4, 4), PieceKind::Flat));
+  CHECK(!canPlace(game, kCells, PieceKind::Flat));
+  // No capstone to place, ever.
+  CHECK(!canPlace(game, at(1, 1), PieceKind::Cap));
+  CHECK(canPlace(game, at(1, 1), PieceKind::Wall));
+  Game opening;
+  reset(opening, kSmallSize);
+  CHECK(generateMoves(opening, gMoves, kMaxMoves) == 9);
+  CHECK(generateMoves(game, gMoves, kMaxMoves) == 9 * 2);  // a flat or a wall anywhere
+}
+
+void testASlideStopsAtTheSmallBoardsEdge() {
+  Game game = smallGame();
+  setStack(game, 2, 0, "W");
+  CHECK(!canSlide(game, mkSlide(2, 0, Direction::Right, 1, {1})));  // column 3 is off this board
+  CHECK(canSlide(game, mkSlide(2, 0, Direction::Down, 1, {1})));
+  Game big = midgame();
+  setStack(big, 2, 0, "W");
+  CHECK(canSlide(big, mkSlide(2, 0, Direction::Right, 1, {1})));
+}
+
+void testTheCarryLimitIsTheBoardsWidth() {
+  Game game = smallGame();
+  setStack(game, 0, 0, "WWWW");
+  CHECK(carryLimit(game) == 3);
+  CHECK(canSlide(game, mkSlide(0, 0, Direction::Right, 3, {1, 2})));
+  CHECK(!canSlide(game, mkSlide(0, 0, Direction::Right, 4, {1, 2, 1})));
+  Game big = midgame();
+  setStack(big, 0, 0, "WWWW");
+  CHECK(canSlide(big, mkSlide(0, 0, Direction::Right, 4, {1, 1, 1, 1})));
+}
+
+void testARoadOfThreeWinsOnTheSmallBoard() {
+  Game game = smallGame();
+  for (int c = 0; c < 3; ++c) setStack(game, c, 1, "W");
+  CHECK(hasRoad(game, Color::White));
+  CHECK(!hasRoad(game, Color::Black));
+  Game two = smallGame();
+  setStack(two, 0, 1, "W");
+  setStack(two, 1, 1, "W");
+  CHECK(!hasRoad(two, Color::White));  // two squares span nothing on a board three wide
+  // A fifth-column stone is off the board and must not complete anything.
+  setStack(two, 3, 1, "W");
+  CHECK(!hasRoad(two, Color::White));
+}
+
+void testTheSmallBoardEndsWhenItIsFull() {
+  Game game = smallGame();
+  for (int row = 0; row < 3; ++row) {
+    for (int col = 0; col < 3; ++col) {
+      if (row == 2 && col == 2) continue;
+      setStack(game, col, row, ((col + row) % 2 == 0) ? "W" : "B");
+    }
+  }
+  game.reserve[0].flats = 4;
+  game.reserve[1].flats = 4;
+  CHECK(!game.over);
+  CHECK(place(game, at(2, 2), PieceKind::Flat));
+  CHECK(game.over);
+}
+
+void testTheSmallBoardsOpponentPlaysLegalMovesAtEveryLevel() {
+  const Level levels[3] = {Level::Easy, Level::Medium, Level::Hard};
+  for (const Level level : levels) {
+    uint32_t seed = 99;
+    for (int g = 0; g < 20; ++g) {
+      Game game;
+      reset(game, kSmallSize);
+      for (int ply = 0; ply < 60 && !game.over; ++ply) {
+        const Move move = bestMove(game, gMoves, kMaxMoves, seed, level);
+        CHECK(makeMove(game, move));
+      }
+    }
+  }
+}
+
+void testHardNeverAllowsAnImmediateRoad() {
+  for (int trial = 0; trial < 6; ++trial) {
+    Game game = midgame();
+    for (int c = 0; c < 4; ++c) setStack(game, c, 2, "B");
+    setStack(game, trial % 4, 0, "W");
+    uint32_t seed = 5 + trial;
+    const Move move = bestMove(game, gMoves, kMaxMoves, seed, Level::Hard);
+    Game after = game;
+    CHECK(makeMove(after, move));
+    CHECK(!after.over);
+    const int replies = generateMoves(after, gMoves, kMaxMoves);
+    bool blackWins = false;
+    for (int i = 0; i < replies; ++i) {
+      Game next = after;
+      if (makeMove(next, gMoves[i]) && next.over && next.winner == Color::Black) blackWins = true;
+    }
+    CHECK(!blackWins);
+  }
+}
+
+void testHardTakesAWinWhenItHasOne() {
+  Game game = midgame();
+  for (int c = 0; c < 4; ++c) setStack(game, c, 2, "W");
+  uint32_t seed = 3;
+  const Move move = bestMove(game, gMoves, kMaxMoves, seed, Level::Hard);
+  Game after = game;
+  CHECK(makeMove(after, move));
+  CHECK(after.over && after.winner == Color::White);
+}
+
+// Plays one game with each side at its own level; returns 1 for a White win, -1
+// for Black, 0 for a draw or a game that never ended.
+int playLevels(const Level white, const Level black, const int size) {
+  Game game;
+  reset(game, size);
+  for (int ply = 0; ply < 300 && !game.over; ++ply) {
+    const Level level = game.toMove == Color::White ? white : black;
+    const Move move = bestMove(game, gMoves, kMaxMoves, rng, level);
+    if (!makeMove(game, move)) return 0;
+  }
+  if (!game.over || game.draw) return 0;
+  return game.winner == Color::White ? 1 : -1;
+}
+
+void testHarderLevelsWinMore() {
+  int hardOverEasy = 0;
+  int easyGames = 0;
+  int mediumOverEasy = 0;
+  for (int g = 0; g < 16; ++g) {
+    // Alternate colours so neither the first move nor the swap decides it.
+    const bool hardWhite = (g % 2) == 0;
+    const int a = hardWhite ? playLevels(Level::Hard, Level::Easy, kSize) : -playLevels(Level::Easy, Level::Hard, kSize);
+    const int b =
+        hardWhite ? playLevels(Level::Medium, Level::Easy, kSize) : -playLevels(Level::Easy, Level::Medium, kSize);
+    if (a > 0) ++hardOverEasy;
+    if (b > 0) ++mediumOverEasy;
+    ++easyGames;
+  }
+  std::printf("levels: hard beat easy %d of %d, medium beat easy %d of %d\n", hardOverEasy, easyGames,
+              mediumOverEasy, easyGames);
+  CHECK(hardOverEasy >= easyGames * 3 / 4);
+  CHECK(mediumOverEasy >= easyGames * 5 / 8);
+}
+
 }  // namespace
 
 int main() {
@@ -769,6 +939,16 @@ int main() {
   testTheOpponentIsDeterministicForAGivenSeed();
   testTheOpponentOnlyEverPlaysALegalMove();
   testTheOpponentBeatsARandomMoverConvincingly();
+  testASmallBoardHasThePublishedPieceCounts();
+  testOnlyTheSmallBoardsSquaresArePlayable();
+  testASlideStopsAtTheSmallBoardsEdge();
+  testTheCarryLimitIsTheBoardsWidth();
+  testARoadOfThreeWinsOnTheSmallBoard();
+  testTheSmallBoardEndsWhenItIsFull();
+  testTheSmallBoardsOpponentPlaysLegalMovesAtEveryLevel();
+  testHardNeverAllowsAnImmediateRoad();
+  testHardTakesAWinWhenItHasOne();
+  testHarderLevelsWinMore();
 
   std::printf("%d checks, %d failed\n", checks, failures);
   return failures == 0 ? 0 : 1;

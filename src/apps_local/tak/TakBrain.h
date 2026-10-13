@@ -5,7 +5,18 @@
 // nothing here it could "cheat" with even if it wanted to: Tak carries no
 // hidden information to cheat about in the first place, unlike a card game.
 //
-// **One ply, not two.** CheckersBrain.h searches two ply because a one-ply
+// **Three levels, and what each one is.** EASY plays a random legal move about
+// half the time and the evaluation's pick the rest, so it hangs stones and
+// misses wins like a beginner. MEDIUM is the plain one-ply search described
+// below. HARD adds the one thing one ply cannot see: it takes its best few
+// candidates and, for each, plays out every reply the opponent has, so it
+// never allows a road it could have stopped and takes a win when one exists.
+// That is a two-ply search over a short list rather than over all several
+// hundred moves, which is what keeps it inside the frame budget the next
+// paragraph is worried about: roughly ten candidates times a few hundred
+// replies is a few thousand evaluations, not a few hundred thousand.
+//
+// **One ply, not two** (for EASY and MEDIUM). CheckersBrain.h searches two ply because a one-ply
 // checkers bot hangs pieces constantly -- a free capture is very often a
 // trap. Tak's problem is the opposite: it is NOT that one ply plays badly,
 // it's that a full ply here is enormously more expensive than a checkers ply.
@@ -65,11 +76,17 @@ struct Move {
 // the same rule CLAUDE.md states for any allocation this size.
 constexpr int kMaxMoves = 600;
 
+// (Level is defined in TakCore.h so the screens can name it without this file.)
+
+// How many candidates HARD looks two plies deep on.
+constexpr int kHardCandidates = 10;
+
 inline int generatePlacements(const Game& game, Move* out, int capacity) {
   int count = 0;
   const PieceKind kinds[3] = {PieceKind::Flat, PieceKind::Wall, PieceKind::Cap};
   const int kindCount = (game.plyNumber < 2) ? 1 : 3;  // swap plies: flats only
   for (int idx = 0; idx < kCells && count < capacity; idx++) {
+    if (!playable(game, idx)) continue;
     for (int k = 0; k < kindCount; k++) {
       if (!canPlace(game, idx, kinds[k])) continue;
       out[count].isPlacement = true;
@@ -123,7 +140,8 @@ inline int generateSlides(const Game& game, Move* out, int capacity) {
     const Cell& cell = game.board[idx];
     if (cell.height == 0) continue;
     if (colorAt(cell, cell.height - 1) != game.toMove) continue;  // only your own stacks move
-    const int maxPickUp = (cell.height < kCarryLimit) ? cell.height : kCarryLimit;
+    const int limit = carryLimit(game);
+    const int maxPickUp = (cell.height < limit) ? cell.height : limit;
     for (int d = 0; d < 4 && count < capacity; d++) {
       for (uint8_t pickUp = 1; pickUp <= maxPickUp && count < capacity; pickUp++) {
         for (uint8_t steps = 1; steps <= pickUp && count < capacity; steps++) {
@@ -162,9 +180,10 @@ inline int roadDistance(const Game& game, Color color) {
     bool settled[kCells];
     for (int i = 0; i < kCells; i++) {
       dist[i] = kInfinite;
-      settled[i] = false;
+      // Squares off a small board are never reached.
+      settled[i] = !playable(game, i);
     }
-    for (int n = 0; n < kSize; n++) {
+    for (int n = 0; n < game.size; n++) {
       const int idx = horizontal ? at(0, n) : at(n, 0);
       dist[idx] = costOf(idx);
     }
@@ -186,7 +205,7 @@ inline int roadDistance(const Game& game, Color color) {
       for (int d = 0; d < 4; d++) {
         const int nc = c + dc[d];
         const int nr = r + dr[d];
-        if (!onBoard(nc, nr)) continue;
+        if (!onBoard(game, nc, nr)) continue;
         const int v = at(nc, nr);
         if (settled[v]) continue;
         const int candidate = dist[u] + costOf(v);
@@ -194,8 +213,8 @@ inline int roadDistance(const Game& game, Color color) {
       }
     }
     int best = kInfinite;
-    for (int n = 0; n < kSize; n++) {
-      const int idx = horizontal ? at(kSize - 1, n) : at(n, kSize - 1);
+    for (int n = 0; n < game.size; n++) {
+      const int idx = horizontal ? at(game.size - 1, n) : at(n, game.size - 1);
       if (dist[idx] < best) best = dist[idx];
     }
     return best;
@@ -242,7 +261,7 @@ inline uint32_t nextRandom(uint32_t& state) {
 // always played in the same order. `scratch` must hold at least
 // scratchCapacity Move entries and must be allocated statically (see
 // kMaxMoves).
-inline Move bestMove(const Game& game, Move* scratch, int scratchCapacity, uint32_t& rngState) {
+inline Move bestOnePly(const Game& game, Move* scratch, int scratchCapacity, uint32_t& rngState) {
   const int count = generateMoves(game, scratch, scratchCapacity);
   // Tak never strands the player to move without a legal move: an empty
   // square is always a legal placement target as long as any reserve piece
@@ -271,6 +290,86 @@ inline Move bestMove(const Game& game, Move* scratch, int scratchCapacity, uint3
     }
   }
   return scratch[bestIndex];
+}
+
+inline bool makeMove(Game& game, const Move& move) {
+  return move.isPlacement ? place(game, move.placeIndex, move.placeKind) : slide(game, move.slideMove);
+}
+
+// HARD: the best kHardCandidates moves by one-ply score, each then tried
+// against every reply, scored by the worst reply the opponent has.
+inline Move bestTwoPly(const Game& game, Move* scratch, int scratchCapacity, uint32_t& rngState) {
+  static Move top[kHardCandidates];
+  int topScore[kHardCandidates];
+  int topCount = 0;
+
+  const int count = generateMoves(game, scratch, scratchCapacity);
+  const Color me = game.toMove;
+  for (int i = 0; i < count; i++) {
+    Game after = game;
+    if (!makeMove(after, scratch[i])) continue;
+    const int score = evaluate(after, me);
+    // Insert into the short list, best first; ties keep the earlier move, and
+    // the shuffle below is what varies play.
+    int at = topCount < kHardCandidates ? topCount : kHardCandidates;
+    if (at == kHardCandidates && score <= topScore[kHardCandidates - 1]) continue;
+    if (at == kHardCandidates) at = kHardCandidates - 1;
+    while (at > 0 && topScore[at - 1] < score) {
+      if (at < kHardCandidates) {
+        topScore[at] = topScore[at - 1];
+        top[at] = top[at - 1];
+      }
+      --at;
+    }
+    topScore[at] = score;
+    top[at] = scratch[i];
+    if (topCount < kHardCandidates) ++topCount;
+  }
+  if (topCount == 0) return scratch[0];
+
+  int bestIndex = 0;
+  int bestScore = -(1 << 30);
+  int tieCount = 0;
+  for (int c = 0; c < topCount; c++) {
+    Game after = game;
+    makeMove(after, top[c]);
+    int worst;
+    if (after.over) {
+      worst = evaluate(after, me);  // a win is +100000 and ends the search at once
+    } else {
+      worst = 1 << 30;
+      const int replies = generateMoves(after, scratch, scratchCapacity);
+      for (int r = 0; r < replies; r++) {
+        Game reply = after;
+        if (!makeMove(reply, scratch[r])) continue;
+        const int score = evaluate(reply, me);
+        if (score < worst) worst = score;
+        if (worst <= -100000) break;  // they have a win; no need to look further
+      }
+      if (worst == (1 << 30)) worst = evaluate(after, me);
+    }
+    if (worst > bestScore) {
+      bestScore = worst;
+      bestIndex = c;
+      tieCount = 1;
+    } else if (worst == bestScore) {
+      tieCount++;
+      if ((nextRandom(rngState) % static_cast<uint32_t>(tieCount)) == 0) bestIndex = c;
+    }
+  }
+  return top[bestIndex];
+}
+
+// The opponent's move at a level. Same contract as bestOnePly: `scratch` is
+// static and holds at least scratchCapacity entries.
+inline Move bestMove(const Game& game, Move* scratch, int scratchCapacity, uint32_t& rngState,
+                     Level level = Level::Medium) {
+  if (level == Level::Hard) return bestTwoPly(game, scratch, scratchCapacity, rngState);
+  if (level == Level::Easy && (nextRandom(rngState) % 100u) < 50u) {
+    const int count = generateMoves(game, scratch, scratchCapacity);
+    if (count > 0) return scratch[nextRandom(rngState) % static_cast<uint32_t>(count)];
+  }
+  return bestOnePly(game, scratch, scratchCapacity, rngState);
 }
 
 }  // namespace tak

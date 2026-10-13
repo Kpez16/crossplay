@@ -19,19 +19,42 @@ enum : fui::ActionId {
   // The whole board, registered once. The squares themselves are found
   // arithmetically by cellAt(), from the same layout that drew them.
   ActionBoard = 6,
+  ActionHowToNext = 7,
+  // Setup: the value says which (3 or 5, 0 or 1, 0..2).
+  ActionSize = 8,
+  ActionSeat = 9,
+  ActionLevel = 10,
+  ActionStart = 11,
 };
 
-enum class MenuRow : int { Play = 0, TwoPlayers, Count };
+enum class MenuRow : int { Play = 0, TwoPlayers, HowTo, Count };
 
 struct MenuModel {
   int selected = -1;
 };
+
+// The choices made before a game. The seat and the level only matter against
+// the computer, and the screen leaves them out for two people.
+struct SetupModel {
+  bool vsComputer = true;
+  int size = tak::kSize;
+  tak::Color player = tak::Color::White;
+  tak::Level level = tak::Level::Medium;
+};
+
+struct HowToModel {
+  int page = 0;
+};
+
+int howToPages();
 
 struct BoardModel {
   // Owned by the Activity; the builder only reads them.
   const tak::Game* game = nullptr;
   const tak::Turn* turn = nullptr;
   tak::Opponent opponent = tak::Opponent::Computer;
+  // The colour the person holding the device plays against the computer.
+  tak::Color player = tak::Color::White;
   // The computer is working out its reply.
   bool thinking = false;
 };
@@ -39,6 +62,7 @@ struct BoardModel {
 struct ResultModel {
   const tak::Game* game = nullptr;
   tak::Opponent opponent = tak::Opponent::Computer;
+  tak::Color player = tak::Color::White;
 };
 
 // Where the board sits, derived once from the device so drawing and hit-testing
@@ -48,11 +72,13 @@ struct Layout {
   int16_t left = 0;
   int16_t top = 0;
   int16_t cell = 0;
+  // Squares along an edge: 3 or 5.
+  int16_t size = tak::kSize;
   fui::Rect panel{};
   bool sideways = false;
 };
 
-Layout layoutFor(const fui::DeviceContext& device);
+Layout layoutFor(const fui::DeviceContext& device, int size = tak::kSize);
 
 fui::Rect boardRect(const Layout& layout);
 fui::Rect cellRect(const Layout& layout, int index);
@@ -61,6 +87,8 @@ fui::Rect cellRect(const Layout& layout, int index);
 bool cellAt(const Layout& layout, int x, int y, int& index);
 
 void buildMenu(toybox::Screen& screen, const MenuModel& model);
+void buildSetup(toybox::Screen& screen, const SetupModel& model);
+void buildHowTo(toybox::Screen& screen, const HowToModel& model);
 void buildBoard(toybox::Screen& screen, const BoardModel& model);
 void buildResult(toybox::Screen& screen, const ResultModel& model);
 

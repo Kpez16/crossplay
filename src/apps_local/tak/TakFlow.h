@@ -40,6 +40,9 @@ namespace tak {
 enum class Screen : uint8_t {
   // The top. Back from here leaves the app, and it is the only screen that does.
   Menu,
+  // Board size, which colour, how hard.
+  Setup,
+  HowTo,
   Board,
   Result,
 };
@@ -104,25 +107,25 @@ inline bool directionTo(const int from, const int to, Direction& out) {
 }
 
 // The square one step from `cell`, or kNothing at the edge.
-inline int cellAfter(const int cell, const Direction direction) {
+inline int cellAfter(const Game& game, const int cell, const Direction direction) {
   int col = colOf(cell);
   int row = rowOf(cell);
   step(direction, col, row);
-  return onBoard(col, row) ? at(col, row) : kNothing;
+  return onBoard(game, col, row) ? at(col, row) : kNothing;
 }
 
 // The square the hand is over: where the next stone would go if it stayed.
-inline int pathEnd(const Turn& turn) {
+inline int pathEnd(const Game& game, const Turn& turn) {
   int cell = turn.from;
-  for (int i = 0; i < turn.steps && cell != kNothing; ++i) cell = cellAfter(cell, turn.dir);
+  for (int i = 0; i < turn.steps && cell != kNothing; ++i) cell = cellAfter(game, cell, turn.dir);
   return cell;
 }
 
 // Most stones the stack on `cell` may give up.
 inline int maxCarry(const Game& game, const int cell) {
-  if (cell < 0 || cell >= kCells) return 0;
+  if (!playable(game, cell)) return 0;
   const int height = game.board[cell].height;
-  return height < kCarryLimit ? height : kCarryLimit;
+  return height < carryLimit(game) ? height : carryLimit(game);
 }
 
 // Calls `visit` with every LEGAL slide that lifts exactly `carry` stones from
@@ -133,7 +136,7 @@ inline int maxCarry(const Game& game, const int cell) {
 // Nothing here knows what makes a slide legal; canSlide() does.
 template <typename Visit>
 inline void eachLegalSlide(const Game& game, const int from, const int carry, Visit&& visit) {
-  if (carry < 1 || carry > kCarryLimit) return;
+  if (carry < 1 || carry > carryLimit(game)) return;
   const Direction directions[4] = {Direction::Up, Direction::Down, Direction::Left, Direction::Right};
   for (const Direction direction : directions) {
     for (unsigned mask = 0; mask < (1u << (carry - 1)); ++mask) {
@@ -164,7 +167,7 @@ inline void eachLegalSlide(const Game& game, const int from, const int carry, Vi
 // a hand with nowhere to go.
 inline bool canLift(const Game& game, const int cell) {
   if (game.over || game.plyNumber < 2) return false;
-  if (cell < 0 || cell >= kCells) return false;
+  if (!playable(game, cell)) return false;
   const Cell& stack = game.board[cell];
   if (stack.height == 0 || colorAt(stack, stack.height - 1) != game.toMove) return false;
   const int most = maxCarry(game, cell);
@@ -206,7 +209,7 @@ enum class Tap : uint8_t {
 };
 
 inline Tap tapMeaning(const Game& game, const Turn& turn, const int cell) {
-  if (game.over || cell < 0 || cell >= kCells) return Tap::Ignore;
+  if (game.over || !playable(game, cell)) return Tap::Ignore;
   const Cell& square = game.board[cell];
 
   if (!holding(turn)) {
@@ -232,7 +235,7 @@ inline Tap tapMeaning(const Game& game, const Turn& turn, const int cell) {
     return any ? Tap::Step : Tap::Ignore;
   }
 
-  const int end = pathEnd(turn);
+  const int end = pathEnd(game, turn);
   if (cell == end) {
     bool any = false;
     eachLegalSlide(game, turn.from, turn.carry, [&](const Slide& slide) {
@@ -240,7 +243,7 @@ inline Tap tapMeaning(const Game& game, const Turn& turn, const int cell) {
     });
     return any ? Tap::Add : Tap::Ignore;
   }
-  if (end != kNothing && cell == cellAfter(end, turn.dir)) {
+  if (end != kNothing && cell == cellAfter(game, end, turn.dir)) {
     bool any = false;
     eachLegalSlide(game, turn.from, turn.carry, [&](const Slide& slide) {
       if (extends(turn, slide) && slide.steps > turn.steps &&
@@ -345,10 +348,12 @@ inline uint32_t tapTargets(const Game& game, const Turn& turn) {
 // How a finished game reads from the seat of the person holding the device.
 enum class Verdict : uint8_t { YouWon, YouLost, WhiteWon, BlackWon, Draw };
 
-inline Verdict verdictFor(const Game& game, const Opponent opponent) {
+// `player` is the colour the person holding the device plays against the
+// computer; two people passing it are told the colour instead.
+inline Verdict verdictFor(const Game& game, const Opponent opponent, const Color player = Color::White) {
   if (game.draw) return Verdict::Draw;
   if (opponent == Opponent::Human) return game.winner == Color::White ? Verdict::WhiteWon : Verdict::BlackWon;
-  return game.winner == Color::White ? Verdict::YouWon : Verdict::YouLost;
+  return game.winner == player ? Verdict::YouWon : Verdict::YouLost;
 }
 
 }  // namespace tak

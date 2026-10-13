@@ -31,7 +31,8 @@ class TakActivity final : public Activity {
  private:
   uint32_t surfaceMeaning() const override;
 
-  void startGame(tak::Opponent who);
+  void openSetup(tak::Opponent who);
+  void startGame();
   void afterMove();
   void playComputer();
   void routeBoardTap(int x, int y);
@@ -42,6 +43,12 @@ class TakActivity final : public Activity {
   tak::Game game;
   tak::Turn turn;
   tak::Opponent opponent = tak::Opponent::Computer;
+  // The choices on the setup screen, kept between games so PLAY AGAIN and the
+  // next visit start from what was last used.
+  int boardSize = tak::kSize;
+  tak::Color player = tak::Color::White;
+  tak::Level level = tak::Level::Medium;
+  int helpPage = 0;
   uint32_t rngState = 1;
   // Where the board was last drawn; a tap is resolved against this.
   takui::Layout layout;

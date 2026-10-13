@@ -5,11 +5,16 @@
 // trivially copyable, and every rule lives here so Flow/Screens/Brain never
 // reimplement a check the engine already makes.
 //
-// **5x5, 21 flats + 1 capstone per player.** That is the standard/tournament
-// size and piece count (Tak scales the count with the board: 4x4 is 15 flats
-// and no capstone, 6x6 is 30 and one, 8x8 is 50 and two). Only 5x5 is
-// implemented; a second size would need the same treatment Go gave its board
-// size -- a field, not a constant -- if it's ever wanted.
+// **Two board sizes: 5x5 and 3x3.** 5x5 is the standard/tournament size, 21
+// flats and 1 capstone per player. 3x3 is the smallest size in the published
+// rules, 10 flats and no capstone. (Tak scales the count with the board: 4x4 is
+// 15 flats and none, 6x6 is 30 and one, 8x8 is 50 and two.) The size is a field,
+// `Game::size`, as Go's is. Every array is sized for the largest board and a
+// smaller one lives in the top-left corner of the same grid, so a square's index
+// is always `row * kSize + col` whatever the size and `at()` needs no board. What
+// changes is which squares are ON the board: ask `onBoard(game, col, row)` or
+// `playable(game, index)`, never the bare constants, which are the grid and not
+// the game.
 //
 // **No bit-packing.** Go packs two bits a point because a 13x13 position has
 // to fit a 192-byte link-layer packet. Tak v1 is hotseat-only (see the
@@ -33,12 +38,14 @@
 
 namespace tak {
 
+// The grid every board is drawn into: the largest board, and the row stride.
 constexpr int kSize = 5;
 constexpr int kCells = kSize * kSize;
+constexpr int kSmallSize = 3;
 constexpr int kFlatsPerPlayer = 21;
 constexpr int kCapstonesPerPlayer = 1;
-// Largest single move: you may pick up at most as many stones as the board is
-// wide (the standard "carry limit" rule -- it scales with board size).
+// The most stones any move can carry (the carry limit of the largest board).
+// The limit in force is smaller on a small board: see carryLimit().
 constexpr int kCarryLimit = kSize;
 // Ceiling on a single stack's height. Every one of the 44 pieces in the game
 // landing in one column is not legal in any realistic line of play, but it is
@@ -47,6 +54,9 @@ constexpr int kCarryLimit = kSize;
 constexpr int kMaxStackHeight = 2 * (kFlatsPerPlayer + kCapstonesPerPlayer);
 
 enum class Color : uint8_t { White = 0, Black = 1 };
+
+// How hard the built-in opponent plays. The rules do not care; TakBrain does.
+enum class Level : uint8_t { Easy = 0, Medium = 1, Hard = 2 };
 enum class PieceKind : uint8_t { Flat = 0, Wall = 1, Cap = 2 };
 
 constexpr Color opposite(Color color) {
@@ -80,7 +90,15 @@ struct Reserve {
   uint8_t capstones = kCapstonesPerPlayer;
 };
 
+// The published piece counts for a board size. Only the two sizes this app
+// offers; anything else is read as the standard board.
+constexpr int flatsFor(int size) { return size == kSmallSize ? 10 : kFlatsPerPlayer; }
+constexpr int capstonesFor(int size) { return size == kSmallSize ? 0 : kCapstonesPerPlayer; }
+constexpr bool validSize(int size) { return size == kSmallSize || size == kSize; }
+
 struct Game {
+  // Board width and height. Only squares with col, row < size are on the board.
+  uint8_t size = kSize;
   Cell board[kCells];
   Reserve reserve[2];  // indexed by Color
   Color toMove = Color::White;
@@ -97,13 +115,30 @@ struct Game {
 constexpr int at(int col, int row) { return row * kSize + col; }
 constexpr int colOf(int index) { return index % kSize; }
 constexpr int rowOf(int index) { return index / kSize; }
-constexpr bool onBoard(int col, int row) {
-  return col >= 0 && col < kSize && row >= 0 && row < kSize;
+
+// A new game on a `size` x `size` board, with that size's piece counts.
+inline void reset(Game& game, int size = kSize) {
+  if (!validSize(size)) size = kSize;
+  game = Game{};
+  game.size = static_cast<uint8_t>(size);
+  for (Reserve& reserve : game.reserve) {
+    reserve.flats = static_cast<uint8_t>(flatsFor(size));
+    reserve.capstones = static_cast<uint8_t>(capstonesFor(size));
+  }
 }
 
-inline void reset(Game& game) {
-  game = Game{};
+// Whether (col, row) is a square of THIS game's board.
+inline bool onBoard(const Game& game, int col, int row) {
+  return col >= 0 && col < game.size && row >= 0 && row < game.size;
 }
+
+// Whether `index` names a square of this game's board.
+inline bool playable(const Game& game, int index) {
+  return index >= 0 && index < kCells && onBoard(game, colOf(index), rowOf(index));
+}
+
+// Most stones a move may pick up: as many as the board is wide.
+inline int carryLimit(const Game& game) { return game.size; }
 
 // The color whose piece is placed THIS turn -- not necessarily game.toMove,
 // because of the opening swap (see plyNumber's comment above).
@@ -113,7 +148,7 @@ inline Color colorToPlace(const Game& game) {
 
 inline bool canPlace(const Game& game, int index, PieceKind kind) {
   if (game.over) return false;
-  if (index < 0 || index >= kCells) return false;
+  if (!playable(game, index)) return false;
   if (game.board[index].height != 0) return false;  // placement targets empty squares only
   if (game.plyNumber < 2 && kind != PieceKind::Flat) return false;  // swap turns are flats only
   const Color color = colorToPlace(game);
@@ -177,12 +212,12 @@ inline bool canSlide(const Game& game, const Slide& slide) {
   // The opening swap is two PLACEMENTS. On ply 1 the stone White just put down
   // is Black's, so without this Black could slide it instead of placing.
   if (game.plyNumber < 2) return false;
-  if (slide.from < 0 || slide.from >= kCells) return false;
+  if (!playable(game, slide.from)) return false;
   const Cell& src = game.board[slide.from];
   if (src.height == 0) return false;
   if (colorAt(src, src.height - 1) != game.toMove) return false;  // must move your own top piece
-  if (slide.pickUp < 1 || slide.pickUp > kCarryLimit || slide.pickUp > src.height) return false;
-  if (slide.steps < 1 || slide.steps > kCarryLimit) return false;
+  if (slide.pickUp < 1 || slide.pickUp > carryLimit(game) || slide.pickUp > src.height) return false;
+  if (slide.steps < 1 || slide.steps > carryLimit(game)) return false;
 
   uint32_t sum = 0;
   for (int i = 0; i < slide.steps; i++) {
@@ -195,7 +230,7 @@ inline bool canSlide(const Game& game, const Slide& slide) {
   int row = rowOf(slide.from);
   for (int i = 0; i < slide.steps; i++) {
     step(slide.direction, col, row);
-    if (!onBoard(col, row)) return false;
+    if (!onBoard(game, col, row)) return false;
     const Cell& dest = game.board[at(col, row)];
     if (dest.height == 0) continue;  // empty square: always fine
     if (dest.topKind == PieceKind::Cap) return false;  // a capstone can never be landed on, or passed through
@@ -265,7 +300,7 @@ inline bool hasRoad(const Game& game, Color color) {
     for (int i = 0; i < kCells; i++) visited[i] = false;
     int stack[kCells];
     int sp = 0;
-    for (int n = 0; n < kSize; n++) {
+    for (int n = 0; n < game.size; n++) {
       const int idx = horizontal ? at(0, n) : at(n, 0);
       if (!visited[idx] && topCountsForRoad(game.board[idx], color)) {
         visited[idx] = true;
@@ -275,7 +310,7 @@ inline bool hasRoad(const Game& game, Color color) {
     while (sp > 0) {
       const int idx = stack[--sp];
       const int reachedEdge = horizontal ? colOf(idx) : rowOf(idx);
-      if (reachedEdge == kSize - 1) return true;
+      if (reachedEdge == game.size - 1) return true;
       const int c = colOf(idx);
       const int r = rowOf(idx);
       constexpr int dc[4] = {1, -1, 0, 0};
@@ -283,7 +318,7 @@ inline bool hasRoad(const Game& game, Color color) {
       for (int d = 0; d < 4; d++) {
         const int nc = c + dc[d];
         const int nr = r + dr[d];
-        if (!onBoard(nc, nr)) continue;
+        if (!onBoard(game, nc, nr)) continue;
         const int nidx = at(nc, nr);
         if (visited[nidx]) continue;
         if (!topCountsForRoad(game.board[nidx], color)) continue;
@@ -324,10 +359,12 @@ inline void checkGameEnd(Game& game) {
   const bool reserveEmpty = (game.reserve[0].flats == 0 && game.reserve[0].capstones == 0) ||
                              (game.reserve[1].flats == 0 && game.reserve[1].capstones == 0);
   bool boardFull = true;
-  for (const Cell& cell : game.board) {
-    if (cell.height == 0) {
-      boardFull = false;
-      break;
+  for (int row = 0; row < game.size && boardFull; row++) {
+    for (int col = 0; col < game.size; col++) {
+      if (game.board[at(col, row)].height == 0) {
+        boardFull = false;
+        break;
+      }
     }
   }
   if (!reserveEmpty && !boardFull) return;

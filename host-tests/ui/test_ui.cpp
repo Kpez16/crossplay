@@ -7253,6 +7253,7 @@ void testTheTakMenuOffersItsTwoDoors() {
   CHECK(out.target.drew("TAK"));
   CHECK(out.target.drew("PLAY"));
   CHECK(out.target.drew("TWO PLAYERS"));
+  CHECK(out.target.drew("HOW TO PLAY"));
   CHECK(out.has(takui::ActionMenuRow));
   CHECK(!out.interactions.overflowed());
 }
@@ -7362,6 +7363,135 @@ void testTheTakResultNamesTheOutcomeFromYourSeat() {
   Rendered drawn;
   buildTak<takui::ResultModel, takui::buildResult>(drawn, model);
   CHECK(drawn.target.drew("A DRAW"));
+}
+
+void testTheTakSmallBoardGeometryIsOneInverse() {
+  fui::DeviceContext sizes[3] = {device(), device(), device()};
+  sizes[1].width = 540;
+  sizes[1].height = 960;
+  sizes[2].width = 960;
+  sizes[2].height = 540;
+  for (const fui::DeviceContext& ctx : sizes) {
+    const takui::Layout layout = takui::layoutFor(ctx, tak::kSmallSize);
+    CHECK(layout.size == 3);
+    // Bigger squares than the standard board gets, on the same panel.
+    CHECK(layout.cell > takui::layoutFor(ctx, tak::kSize).cell);
+    const fui::Rect board = takui::boardRect(layout);
+    CHECK(board.right() <= ctx.width && board.bottom() <= ctx.height && board.y >= toybox::kChromeHeight);
+    CHECK(layout.panel.height >= 180);
+    for (int row = 0; row < 3; ++row) {
+      for (int col = 0; col < 3; ++col) {
+        const fui::Rect box = takui::cellRect(layout, tak::at(col, row));
+        int hit = -1;
+        CHECK(takui::cellAt(layout, box.x + box.width / 2, box.y + box.height / 2, hit));
+        CHECK(hit == tak::at(col, row));
+      }
+    }
+    int hit = -1;
+    // One square past the board's edge is off it, even though the grid is wider.
+    const fui::Rect last = takui::cellRect(layout, tak::at(2, 2));
+    CHECK(!takui::cellAt(layout, last.right() + 2, last.y + 2, hit));
+    CHECK(!takui::cellAt(layout, last.x + 2, last.bottom() + 2, hit));
+  }
+}
+
+void testTheTakSetupOffersItsChoices() {
+  takui::SetupModel model;
+  Rendered out;
+  buildTak<takui::SetupModel, takui::buildSetup>(out, model);
+  CHECK(out.target.drew("NEW GAME"));
+  CHECK(out.target.drew("3 BY 3"));
+  CHECK(out.target.drew("5 BY 5"));
+  CHECK(out.target.drew("WHITE"));
+  CHECK(out.target.drew("BLACK"));
+  CHECK(out.target.drew("EASY"));
+  CHECK(out.target.drew("MEDIUM"));
+  CHECK(out.target.drew("HARD"));
+  CHECK(out.target.drew("START"));
+  CHECK(out.has(takui::ActionSize) && out.has(takui::ActionSeat) && out.has(takui::ActionLevel));
+  CHECK(out.has(takui::ActionStart));
+  CHECK(!out.interactions.overflowed());
+
+  // Two people have no seat and no level to choose, and the screen says only
+  // what applies.
+  model.vsComputer = false;
+  model.size = tak::kSmallSize;
+  Rendered two;
+  buildTak<takui::SetupModel, takui::buildSetup>(two, model);
+  CHECK(two.target.drew("10 STONES EACH, NO CAPSTONE"));
+  CHECK(two.has(takui::ActionSize) && two.has(takui::ActionStart));
+  CHECK(!two.has(takui::ActionSeat) && !two.has(takui::ActionLevel));
+  CHECK(!two.target.drew("EASY"));
+}
+
+void testTheTakSetupFitsEverySize() {
+  fui::DeviceContext sizes[3] = {device(), device(), device()};
+  sizes[1].width = 540;
+  sizes[1].height = 960;
+  sizes[2].width = 960;
+  sizes[2].height = 540;
+  takui::SetupModel model;
+  for (const fui::DeviceContext& ctx : sizes) {
+    Rendered out;
+    buildTak<takui::SetupModel, takui::buildSetup>(out, model, ctx);
+    CHECK(out.target.drew("HARD"));
+    CHECK(out.target.drew("START"));
+    CHECK(!out.interactions.overflowed());
+  }
+}
+
+void testTheTakHowToPagesAndEnds() {
+  for (int page = 0; page < takui::howToPages(); ++page) {
+    takui::HowToModel model;
+    model.page = page;
+    Rendered out;
+    buildTak<takui::HowToModel, takui::buildHowTo>(out, model);
+    CHECK(out.target.drew(page + 1 < takui::howToPages() ? "TAP TO CONTINUE" : "TAP TO FINISH"));
+    char progress[16];
+    std::snprintf(progress, sizeof(progress), "%d OF %d", page + 1, takui::howToPages());
+    CHECK(out.target.drew(progress));
+    CHECK(out.tap(240, 300).action == takui::ActionHowToNext);
+    CHECK(!out.interactions.overflowed());
+  }
+}
+
+void testTheTakBoardKnowsWhichSeatIsYours() {
+  tak::Game game;
+  tak::reset(game, tak::kSmallSize);
+  game.plyNumber = 3;
+  game.toMove = tak::Color::White;
+  tak::Turn turn;
+  takui::BoardModel model;
+  model.game = &game;
+  model.turn = &turn;
+  model.player = tak::Color::Black;
+
+  // Playing Black, White's turn belongs to the computer.
+  Rendered theirs;
+  buildTak<takui::BoardModel, takui::buildBoard>(theirs, model);
+  CHECK(theirs.target.drew("THINKING"));
+  CHECK(theirs.target.drew("BLACK (YOU)  10 FLAT"));
+  CHECK(!theirs.has(takui::ActionKind));
+
+  game.toMove = tak::Color::Black;
+  Rendered mine;
+  buildTak<takui::BoardModel, takui::buildBoard>(mine, model);
+  CHECK(mine.target.drew("YOUR MOVE"));
+  // A small board has no capstone to offer, so no CAP button and no CAP count.
+  CHECK(mine.target.drew("FLAT"));
+  CHECK(mine.target.drew("WALL"));
+  CHECK(!mine.target.drew("CAP"));
+  CHECK(mine.has(takui::ActionKind));
+
+  // And the result is read from that seat too.
+  game.over = true;
+  game.winner = tak::Color::Black;
+  takui::ResultModel result;
+  result.game = &game;
+  result.player = tak::Color::Black;
+  Rendered won;
+  buildTak<takui::ResultModel, takui::buildResult>(won, result);
+  CHECK(won.target.drew("YOU WIN"));
 }
 
 // --- knucklebones ----------------------------------------------------------
@@ -15150,6 +15280,11 @@ int main() {
   testTheTakBoardSaysWhoseMoveAndWhatItOffers();
   testTheTakBoardFitsEverySize();
   testTheTakResultNamesTheOutcomeFromYourSeat();
+  testTheTakSmallBoardGeometryIsOneInverse();
+  testTheTakSetupOffersItsChoices();
+  testTheTakSetupFitsEverySize();
+  testTheTakHowToPagesAndEnds();
+  testTheTakBoardKnowsWhichSeatIsYours();
   testShelfFolderDrawsItsOwnNameAndRows();
   testShelfFolderMarksNoRow();
   testToyboxRowGeometryIsWhatTheListActuallyUses();

@@ -2,6 +2,8 @@
 
 #include <cstdio>
 
+#include "../ui/ToyboxFormat.h"
+
 namespace takui {
 
 namespace {
@@ -96,15 +98,18 @@ void text(toybox::Screen& screen, const fui::Rect& where, const char* string, co
 
 // A caption for the reserve row: a stone in the owner's colour and what is left.
 void reserveLine(toybox::Screen& screen, const fui::Rect& row, const Color color, const tak::Reserve& reserve,
-                 const bool toMove) {
+                 const bool toMove, const bool you, const int size) {
   const int16_t radius = 9;
   const int16_t cx = static_cast<int16_t>(row.x + radius + 2);
   const int16_t cy = static_cast<int16_t>(row.y + row.height / 2);
   toybox::disc(screen, cx, cy, radius, fui::Color::Black);
   toybox::disc(screen, cx, cy, static_cast<int16_t>(radius - 2), ink(color));
-  char line[40];
-  std::snprintf(line, sizeof(line), "%s%s  %d FLAT  %d CAP", toMove ? "> " : "", colorName(color), reserve.flats,
-                reserve.capstones);
+  char line[48];
+  // A board with no capstones does not mention them.
+  char caps[12] = "";
+  if (tak::capstonesFor(size) > 0) std::snprintf(caps, sizeof(caps), "  %d CAP", reserve.capstones);
+  std::snprintf(line, sizeof(line), "%s%s%s  %d FLAT%s", toMove ? "> " : "", colorName(color), you ? " (YOU)" : "",
+                reserve.flats, caps);
   text(screen, fui::makeRect(static_cast<int16_t>(row.x + radius * 2 + 12), row.y,
                              static_cast<int16_t>(row.width - radius * 2 - 12), row.height),
        line, toybox::kTileFont, fui::TextAlign::Left);
@@ -118,15 +123,15 @@ int flatsOnTop(const tak::Game& game, const Color color) {
   return count;
 }
 
-void drawGrid(toybox::Screen& screen, const int16_t left, const int16_t top, const int16_t cell) {
-  const int16_t side = static_cast<int16_t>(cell * tak::kSize);
+void drawGrid(toybox::Screen& screen, const int16_t left, const int16_t top, const int16_t cell, const int size) {
+  const int16_t side = static_cast<int16_t>(cell * size);
   screen.target().stroke(fui::makeRect(static_cast<int16_t>(left - toybox::kBoardFrame),
                                        static_cast<int16_t>(top - toybox::kBoardFrame),
                                        static_cast<int16_t>(side + toybox::kBoardFrame * 2),
                                        static_cast<int16_t>(side + toybox::kBoardFrame * 2)),
                          fui::Paint::solid(fui::Color::Black), toybox::kBoardFrame);
-  for (int row = 0; row < tak::kSize; ++row) {
-    for (int col = 0; col < tak::kSize; ++col) {
+  for (int row = 0; row < size; ++row) {
+    for (int col = 0; col < size; ++col) {
       const fui::Rect box = fui::makeRect(static_cast<int16_t>(left + col * cell),
                                           static_cast<int16_t>(top + row * cell), cell, cell);
       if (((row + col) & 1) == 1) screen.target().fill(box, fui::Paint::dither(fui::Color::LightGray));
@@ -138,7 +143,7 @@ void drawGrid(toybox::Screen& screen, const int16_t left, const int16_t top, con
 // A fixed position for the front door: both colours, a wall, a capstone and a
 // stack, all made of the app's own pieces.
 void ornament(toybox::Screen& screen, const int16_t left, const int16_t top, const int16_t cell) {
-  drawGrid(screen, left, top, cell);
+  drawGrid(screen, left, top, cell, tak::kSize);
   const auto put = [&](const int col, const int row, const char* stones, const PieceKind kind) {
     tak::Cell stack{};
     int n = 0;
@@ -166,8 +171,9 @@ void ornament(toybox::Screen& screen, const int16_t left, const int16_t top, con
 
 }  // namespace
 
-Layout layoutFor(const fui::DeviceContext& device) {
+Layout layoutFor(const fui::DeviceContext& device, const int size) {
   Layout layout;
+  layout.size = static_cast<int16_t>(size);
   const int16_t first = static_cast<int16_t>(toybox::kChromeHeight + toybox::kGutter + toybox::kBoardFrame);
   layout.top = first;
   layout.sideways = device.width > device.height;
@@ -176,16 +182,16 @@ Layout layoutFor(const fui::DeviceContext& device) {
     const int16_t tall = static_cast<int16_t>(device.height - first - toybox::kBoardFrame - toybox::kGutter -
                                               kPanelHeight - toybox::kMargin);
     if (tall < room) room = tall;
-    layout.cell = static_cast<int16_t>(room / tak::kSize);
-    const int16_t side = static_cast<int16_t>(layout.cell * tak::kSize);
+    layout.cell = static_cast<int16_t>(room / size);
+    const int16_t side = static_cast<int16_t>(layout.cell * size);
     layout.left = static_cast<int16_t>((device.width - side) / 2);
     const int16_t panelTop = static_cast<int16_t>(first + side + toybox::kBoardFrame + toybox::kGutter);
     layout.panel = fui::makeRect(toybox::kMargin, panelTop, static_cast<int16_t>(device.width - toybox::kMargin * 2),
                                  static_cast<int16_t>(device.height - panelTop - toybox::kMargin));
   } else {
     const int16_t room = static_cast<int16_t>(device.height - first - toybox::kBoardFrame - toybox::kMargin);
-    layout.cell = static_cast<int16_t>(room / tak::kSize);
-    const int16_t side = static_cast<int16_t>(layout.cell * tak::kSize);
+    layout.cell = static_cast<int16_t>(room / size);
+    const int16_t side = static_cast<int16_t>(layout.cell * size);
     layout.left = static_cast<int16_t>(toybox::kMargin + toybox::kBoardFrame);
     const int16_t panelLeft = static_cast<int16_t>(layout.left + side + toybox::kBoardFrame + toybox::kGutter * 2);
     layout.panel = fui::makeRect(panelLeft, first, static_cast<int16_t>(device.width - panelLeft - toybox::kMargin),
@@ -195,7 +201,7 @@ Layout layoutFor(const fui::DeviceContext& device) {
 }
 
 fui::Rect boardRect(const Layout& layout) {
-  const int16_t side = static_cast<int16_t>(layout.cell * tak::kSize);
+  const int16_t side = static_cast<int16_t>(layout.cell * layout.size);
   return fui::makeRect(layout.left, layout.top, side, side);
 }
 
@@ -208,7 +214,7 @@ bool cellAt(const Layout& layout, const int x, const int y, int& index) {
   if (layout.cell <= 0) return false;
   const int dx = x - layout.left;
   const int dy = y - layout.top;
-  const int side = layout.cell * tak::kSize;
+  const int side = layout.cell * layout.size;
   if (dx < 0 || dy < 0 || dx >= side || dy >= side) return false;
   index = tak::at(dx / layout.cell, dy / layout.cell);
   return true;
@@ -224,6 +230,8 @@ void buildMenu(toybox::Screen& screen, const MenuModel& model) {
   rows[static_cast<int>(MenuRow::TwoPlayers)].label = "TWO PLAYERS";
   rows[static_cast<int>(MenuRow::TwoPlayers)].subtitle = "PASS THE DEVICE";
   rows[static_cast<int>(MenuRow::TwoPlayers)].actionValue = static_cast<int16_t>(MenuRow::TwoPlayers);
+  rows[static_cast<int>(MenuRow::HowTo)].label = "HOW TO PLAY";
+  rows[static_cast<int>(MenuRow::HowTo)].actionValue = static_cast<int16_t>(MenuRow::HowTo);
 
   const int selected = model.selected < 0 ? 0 : model.selected;
   fui::ListProps list;
@@ -260,9 +268,9 @@ void buildBoard(toybox::Screen& screen, const BoardModel& model) {
 
   const tak::Game& game = *model.game;
   const tak::Turn& turn = *model.turn;
-  const Layout layout = layoutFor(screen.device());
+  const Layout layout = layoutFor(screen.device(), game.size);
 
-  drawGrid(screen, layout.left, layout.top, layout.cell);
+  drawGrid(screen, layout.left, layout.top, layout.cell, game.size);
   screen.frame().hit(boardRect(layout), ActionBoard, 0);
 
   for (int index = 0; index < tak::kCells; ++index) drawStack(screen, cellRect(layout, index), game.board[index]);
@@ -301,7 +309,7 @@ void buildBoard(toybox::Screen& screen, const BoardModel& model) {
     // How many stones each square on the path has been given so far.
     int cell = turn.from;
     for (int i = 0; i < turn.steps; ++i) {
-      cell = tak::cellAfter(cell, turn.dir);
+      cell = tak::cellAfter(game, cell, turn.dir);
       if (cell == tak::kNothing) break;
       const fui::Rect box = cellRect(layout, cell);
       char badge[8];
@@ -318,14 +326,15 @@ void buildBoard(toybox::Screen& screen, const BoardModel& model) {
 
   // The panel: status, both reserves, then either the piece chooser or the hand.
   fui::Rect panel = layout.panel;
-  const bool computerTurn = model.opponent == tak::Opponent::Computer && game.toMove == Color::Black;
+  const bool vsComputer = model.opponent == tak::Opponent::Computer;
+  const bool computerTurn = vsComputer && game.toMove != model.player;
   const char* label;
   char named[24];
   if (game.over) {
     label = "GAME OVER";
   } else if (model.thinking || computerTurn) {
     label = "THINKING";
-  } else if (model.opponent == tak::Opponent::Computer) {
+  } else if (vsComputer) {
     label = "YOUR MOVE";
   } else {
     std::snprintf(named, sizeof(named), "%s TO MOVE", colorName(game.toMove));
@@ -342,7 +351,7 @@ void buildBoard(toybox::Screen& screen, const BoardModel& model) {
   for (int seat = 0; seat < 2; ++seat) {
     const Color color = seat == 0 ? Color::White : Color::Black;
     reserveLine(screen, fui::makeRect(panel.x, y, panel.width, 26), color, game.reserve[seat],
-                !game.over && game.toMove == color);
+                !game.over && game.toMove == color, vsComputer && color == model.player, game.size);
     y = static_cast<int16_t>(y + 28);
   }
   y = static_cast<int16_t>(y + toybox::kGutter - 2);
@@ -374,8 +383,10 @@ void buildBoard(toybox::Screen& screen, const BoardModel& model) {
   // FLAT / WALL / CAP, one of which is always chosen.
   static const char* const kNames[3] = {"FLAT", "WALL", "CAP"};
   static const PieceKind kKinds[3] = {PieceKind::Flat, PieceKind::Wall, PieceKind::Cap};
-  const int16_t width = static_cast<int16_t>((controls.width - toybox::kGutter * 2) / 3);
-  for (int i = 0; i < 3; ++i) {
+  // A board with no capstone has no CAP button to leave disabled and unexplained.
+  const int kinds = tak::capstonesFor(game.size) > 0 ? 3 : 2;
+  const int16_t width = static_cast<int16_t>((controls.width - toybox::kGutter * (kinds - 1)) / kinds);
+  for (int i = 0; i < kinds; ++i) {
     fui::ButtonProps button;
     button.label = kNames[i];
     button.action = ActionKind;
@@ -389,7 +400,7 @@ void buildBoard(toybox::Screen& screen, const BoardModel& model) {
 
 void buildResult(toybox::Screen& screen, const ResultModel& model) {
   const tak::Game& game = *model.game;
-  const tak::Verdict verdict = tak::verdictFor(game, model.opponent);
+  const tak::Verdict verdict = tak::verdictFor(game, model.opponent, model.player);
 
   const char* title = "A DRAW";
   switch (verdict) {
@@ -423,21 +434,254 @@ void buildResult(toybox::Screen& screen, const ResultModel& model) {
 
   // The final position, as large as the room allows.
   const int16_t room = static_cast<int16_t>(area.height - line.height - toybox::kGutter * 2);
-  int16_t cell = static_cast<int16_t>(room / tak::kSize);
-  const int16_t wide = static_cast<int16_t>((area.width - toybox::kBoardFrame * 2) / tak::kSize);
+  const int size = game.size;
+  int16_t cell = static_cast<int16_t>(room / size);
+  const int16_t wide = static_cast<int16_t>((area.width - toybox::kBoardFrame * 2) / size);
   if (wide < cell) cell = wide;
-  if (cell > 90) cell = 90;
+  if (cell > 450 / size) cell = static_cast<int16_t>(450 / size);
   if (cell < 24) return;
-  const int16_t side = static_cast<int16_t>(cell * tak::kSize);
+  const int16_t side = static_cast<int16_t>(cell * size);
   const int16_t left = static_cast<int16_t>(area.x + (area.width - side) / 2);
   const int16_t top = static_cast<int16_t>(line.bottom() + toybox::kGutter + toybox::kBoardFrame);
-  drawGrid(screen, left, top, cell);
+  drawGrid(screen, left, top, cell, size);
   for (int index = 0; index < tak::kCells; ++index) {
+    if (!tak::playable(game, index)) continue;
     drawStack(screen,
               fui::makeRect(static_cast<int16_t>(left + tak::colOf(index) * cell),
                             static_cast<int16_t>(top + tak::rowOf(index) * cell), cell, cell),
               game.board[index]);
   }
+}
+
+namespace {
+
+// A captioned row of exclusive choices, as wide as the panel: the caption, then
+// one button per choice with the chosen one inverted, then a line saying what the
+// choice means. Returns the y the next row starts at.
+int16_t choiceRow(toybox::Screen& screen, const fui::Rect& area, const int16_t y, const char* caption,
+                  const char* const* names, const int count, const int selected, const fui::ActionId action,
+                  const int16_t* values, const char* note) {
+  text(screen, fui::makeRect(area.x, y, area.width, 24), caption, toybox::kTileFont, fui::TextAlign::Left);
+  const int16_t top = static_cast<int16_t>(y + 26);
+  const int16_t width = static_cast<int16_t>((area.width - toybox::kGutter * (count - 1)) / count);
+  for (int i = 0; i < count; ++i) {
+    fui::ButtonProps button;
+    button.label = names[i];
+    button.action = action;
+    button.value = values[i];
+    button.state = i == selected ? fui::StateSelected : fui::StateNormal;
+    screen.button(button, fui::makeRect(static_cast<int16_t>(area.x + i * (width + toybox::kGutter)), top, width,
+                                        toybox::kPillHeight));
+  }
+  int16_t next = static_cast<int16_t>(top + toybox::kPillHeight + 6);
+  if (note != nullptr) {
+    text(screen, fui::makeRect(area.x, next, area.width, 24), note, toybox::kTileFont, fui::TextAlign::Left);
+    next = static_cast<int16_t>(next + 26);
+  }
+  return static_cast<int16_t>(next + toybox::kGutter);
+}
+
+}  // namespace
+
+void buildSetup(toybox::Screen& screen, const SetupModel& model) {
+  toyboxChrome(screen, "NEW GAME");
+
+  fui::ButtonProps start;
+  start.label = "START";
+  start.action = ActionStart;
+  screen.button(start, screen.takeBottom(toybox::kPillHeight, toybox::kGutter));
+
+  const fui::Rect area = screen.body();
+  int16_t y = area.y;
+
+  static const char* const kBoards[2] = {"3 BY 3", "5 BY 5"};
+  static const int16_t kBoardValues[2] = {tak::kSmallSize, tak::kSize};
+  y = choiceRow(screen, area, y, "BOARD", kBoards, 2, model.size == tak::kSmallSize ? 0 : 1, ActionSize, kBoardValues,
+                model.size == tak::kSmallSize ? "10 STONES EACH, NO CAPSTONE" : "21 STONES AND A CAPSTONE EACH");
+
+  if (!model.vsComputer) return;
+
+  static const char* const kSeats[2] = {"WHITE", "BLACK"};
+  static const int16_t kSeatValues[2] = {0, 1};
+  y = choiceRow(screen, area, y, "PLAY AS", kSeats, 2, model.player == Color::White ? 0 : 1, ActionSeat, kSeatValues,
+                "WHITE MOVES FIRST");
+
+  static const char* const kLevels[3] = {"EASY", "MEDIUM", "HARD"};
+  static const int16_t kLevelValues[3] = {0, 1, 2};
+  static const char* const kLevelNotes[3] = {"A BEGINNER. IT MISSES THINGS", "A STEADY OPPONENT",
+                                             "WATCHES YOUR REPLIES. IT TAKES A MOMENT"};
+  const int level = static_cast<int>(model.level);
+  choiceRow(screen, area, y, "LEVEL", kLevels, 3, level, ActionLevel, kLevelValues, kLevelNotes[level]);
+}
+
+int howToPages() { return 6; }
+
+namespace {
+
+// A small board of the app's own pieces for a lesson. Same drawing as the live
+// board, so what is taught is what will be seen.
+struct Lesson {
+  toybox::Screen& screen;
+  int16_t left;
+  int16_t top;
+  int16_t cell;
+
+  fui::Rect box(const int col, const int row) const {
+    return fui::makeRect(static_cast<int16_t>(left + col * cell), static_cast<int16_t>(top + row * cell), cell, cell);
+  }
+  void put(const int col, const int row, const char* stones, const PieceKind kind = PieceKind::Flat) const {
+    tak::Cell stack{};
+    int n = 0;
+    uint64_t bits = 0;
+    for (; stones[n] != '\0'; ++n) {
+      if (stones[n] == 'B') bits |= (1ULL << n);
+    }
+    stack.height = static_cast<uint8_t>(n);
+    stack.colors = bits;
+    stack.topKind = kind;
+    drawStack(screen, box(col, row), stack);
+  }
+  void dot(const int col, const int row) const {
+    const fui::Rect b = box(col, row);
+    toybox::disc(screen, static_cast<int16_t>(b.x + b.width / 2), static_cast<int16_t>(b.y + b.height / 2),
+                 static_cast<int16_t>(cell / 9 + 2), fui::Color::Black);
+  }
+  void mark(const int col, const int row) const { toybox::bracket(screen, box(col, row), static_cast<int16_t>(cell / 4), 4); }
+  void label(const int col, const int row, const char* words) const {
+    const fui::Rect b = box(col, row);
+    text(screen, fui::makeRect(b.x, static_cast<int16_t>(b.bottom() + 6), b.width, 24), words, toybox::kTileFont,
+         fui::TextAlign::Center);
+  }
+};
+
+void drawLesson(toybox::Screen& screen, const int page, const int16_t left, const int16_t top, const int16_t cell) {
+  drawGrid(screen, left, top, cell, 3);
+  const Lesson lesson{screen, left, top, cell};
+  switch (page) {
+    case 0:  // a road of white flats edge to edge
+      lesson.put(0, 1, "W");
+      lesson.put(1, 1, "W");
+      lesson.put(2, 1, "W");
+      lesson.put(0, 0, "B");
+      lesson.put(2, 2, "B");
+      lesson.put(1, 2, "B", PieceKind::Wall);
+      break;
+    case 1:  // the opening swap: each side's first stone is the other's
+      lesson.put(0, 0, "B");
+      lesson.put(2, 2, "W");
+      break;
+    case 2:  // the three stones
+      lesson.put(0, 1, "W");
+      lesson.put(1, 1, "W", PieceKind::Wall);
+      lesson.put(2, 1, "W", PieceKind::Cap);
+      lesson.label(0, 1, "FLAT");
+      lesson.label(1, 1, "WALL");
+      lesson.label(2, 1, "CAP");
+      break;
+    case 3:  // a stack, and where it may go
+      lesson.put(0, 1, "BWW");
+      lesson.mark(0, 1);
+      lesson.dot(1, 1);
+      lesson.dot(2, 1);
+      lesson.dot(0, 0);
+      lesson.dot(0, 2);
+      break;
+    case 4:  // a capstone flattening a wall
+      lesson.put(0, 1, "W", PieceKind::Cap);
+      lesson.put(1, 1, "B", PieceKind::Wall);
+      lesson.mark(1, 1);
+      lesson.put(2, 1, "B");
+      break;
+    default:  // a full board: count the flats on top
+      lesson.put(0, 0, "W");
+      lesson.put(1, 0, "B");
+      lesson.put(2, 0, "W");
+      lesson.put(0, 1, "B");
+      lesson.put(1, 1, "WB", PieceKind::Wall);
+      lesson.put(2, 1, "W");
+      lesson.put(0, 2, "W");
+      lesson.put(1, 2, "B");
+      lesson.put(2, 2, "B");
+      break;
+  }
+}
+
+}  // namespace
+
+void buildHowTo(toybox::Screen& screen, const HowToModel& model) {
+  const int pages = howToPages();
+  const int page = model.page < 0 ? 0 : (model.page >= pages ? pages - 1 : model.page);
+
+  fui::HeaderProps header;
+  header.title = "HOW TO PLAY";
+  char progress[toybox::kOfCounterChars];
+  std::snprintf(progress, sizeof(progress), "%d OF %d", page + 1, pages);
+  header.rightLabel = progress;
+  header.subtitleText = fui::TextStyle{};
+  header.subtitleText.font = toybox::kUiFont;
+  header.subtitleText.color = fui::Color::White;
+  header.subtitleText.align = fui::TextAlign::Right;
+  header.borderEdges = fui::EdgesNone;
+  toybox::absoluteChrome(screen);
+  toybox::headerBand(screen, header);
+  screen.insetContent(fui::Insets{toybox::kGutter * 3, toybox::kMargin, toybox::kMargin, toybox::kMargin});
+
+  const fui::Rect body = screen.body();
+  screen.frame().hit(body, ActionHowToNext, 0);
+
+  constexpr int16_t kDot = 14;
+  constexpr int16_t kDotGap = 10;
+  const int16_t dotRow = static_cast<int16_t>(pages * kDot + (pages - 1) * kDotGap);
+  const int16_t dotX = static_cast<int16_t>(body.x + (body.width - dotRow) / 2);
+  const int16_t dotY = static_cast<int16_t>(body.bottom() - kDot);
+  for (int i = 0; i < pages; ++i) {
+    const fui::Rect dotAt = fui::makeRect(static_cast<int16_t>(dotX + i * (kDot + kDotGap)), dotY, kDot, kDot);
+    if (i == page) {
+      screen.target().fill(dotAt, fui::Paint::solid(fui::Color::Black), 7);
+    } else {
+      screen.target().stroke(dotAt, fui::Paint::dither(fui::Color::DarkGray), toybox::kHairline, 7);
+    }
+  }
+  text(screen, fui::makeRect(body.x, static_cast<int16_t>(dotY - 34), body.width, 22),
+       page + 1 == pages ? "TAP TO FINISH" : "TAP TO CONTINUE", toybox::kTileFont, fui::TextAlign::Center);
+
+  static const char* const kTitles[] = {"THE GOAL", "FIRST MOVE", "THE STONES", "MOVING", "WALLS AND CAPS", "WINNING"};
+  fui::TextStyle title;
+  title.font = toybox::kDisplayFont;
+  title.align = fui::TextAlign::Center;
+  screen.target().text(toybox::inkCentred(fui::makeRect(body.x, body.y, body.width, 46), toybox::kDisplayCut),
+                       kTitles[page], title);
+
+  static const char* const kLines[] = {
+      "BUILD AN UNBROKEN ROAD OF YOUR STONES FROM ONE EDGE TO THE OPPOSITE EDGE. THE FIRST ROAD WINS.",
+      "YOUR FIRST MOVE PLACES ONE OF YOUR OPPONENT'S FLATS, AND THEY DO THE SAME. AFTER THAT, PLACE A STONE OR MOVE A "
+      "STACK.",
+      "A FLAT BUILDS ROADS AND CAN BE STACKED ON. A WALL BLOCKS ROADS. A CAPSTONE BUILDS ROADS AND IS NEVER COVERED.",
+      "TAP YOUR STACK TO LIFT STONES, THEN TAP ALONG A LINE TO DROP ONE ON EACH SQUARE. YOU MAY CARRY AS MANY AS THE "
+      "BOARD IS WIDE.",
+      "NOTHING MOVES ONTO A WALL OR CAPSTONE, EXCEPT A CAPSTONE ALONE, WHICH FLATTENS A WALL. THE 3 BY 3 BOARD HAS NO "
+      "CAPSTONES.",
+      "A ROAD WINS AT ONCE. IF THE BOARD FILLS OR A PLAYER RUNS OUT OF STONES, THE MOST FLATS ON TOP WINS.",
+  };
+  fui::TextStyle caption;
+  caption.font = toybox::kUiFont;
+  caption.align = fui::TextAlign::Center;
+  caption.maxLines = 5;
+  const int16_t captionHeight = 190;
+  const int16_t captionTop = static_cast<int16_t>(dotY - 40 - captionHeight);
+  screen.target().text(fui::makeRect(body.x, captionTop, body.width, captionHeight), kLines[page], caption);
+
+  // The lesson, as large as the room between the title and the words allows.
+  const int16_t bandTop = static_cast<int16_t>(body.y + 60);
+  const int16_t room = static_cast<int16_t>(captionTop - bandTop - 30);
+  int16_t cell = static_cast<int16_t>(room / 3);
+  const int16_t wide = static_cast<int16_t>((body.width - toybox::kBoardFrame * 2) / 3);
+  if (wide < cell) cell = wide;
+  if (cell > 130) cell = 130;
+  if (cell < 24) return;
+  const int16_t side = static_cast<int16_t>(cell * 3);
+  const int16_t top = static_cast<int16_t>(bandTop + (room - side) / 2 + toybox::kBoardFrame);
+  drawLesson(screen, page, static_cast<int16_t>(body.x + (body.width - side) / 2), top, cell);
 }
 
 }  // namespace takui

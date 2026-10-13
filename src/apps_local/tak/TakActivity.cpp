@@ -50,7 +50,7 @@ void TakActivity::onEnter() {
 void TakActivity::onExit() { thinking = false; }
 
 bool TakActivity::computersTurn() const {
-  return opponent == tak::Opponent::Computer && game.toMove == tak::Color::Black && !game.over;
+  return opponent == tak::Opponent::Computer && game.toMove != player && !game.over;
 }
 
 void TakActivity::showScreen(const tak::Screen next) {
@@ -61,14 +61,23 @@ void TakActivity::showScreen(const tak::Screen next) {
   requestUpdate();
 }
 
-void TakActivity::startGame(const tak::Opponent who) {
+void TakActivity::openSetup(const tak::Opponent who) {
   opponent = who;
-  tak::reset(game);
+  showScreen(tak::Screen::Setup);
+}
+
+void TakActivity::startGame() {
+  tak::reset(game, boardSize);
   tak::clearHand(turn);
   // Different every game, and never zero (the generator would stay there).
   rngState = (static_cast<uint32_t>(millis()) * 2654435761u) | 1u;
   paintsSinceFlash = 0;
   showScreen(tak::Screen::Board);
+  // Playing Black means the computer opens.
+  if (computersTurn()) {
+    thinking = true;
+    thinkAt = static_cast<uint32_t>(millis()) + kThinkDelayMs;
+  }
 }
 
 void TakActivity::afterMove() {
@@ -86,9 +95,8 @@ void TakActivity::afterMove() {
 void TakActivity::playComputer() {
   thinking = false;
   if (!computersTurn()) return;
-  const tak::Move move = tak::bestMove(game, gScratch, tak::kMaxMoves, rngState);
-  const bool played = move.isPlacement ? tak::place(game, move.placeIndex, move.placeKind)
-                                       : tak::slide(game, move.slideMove);
+  const tak::Move move = tak::bestMove(game, gScratch, tak::kMaxMoves, rngState, level);
+  const bool played = tak::makeMove(game, move);
   if (!played) LOG_ERR("TAK", "The computer chose a move the rules refused");
   turn.kind = tak::usableKind(game, turn.kind);
   afterMove();
@@ -116,6 +124,7 @@ void TakActivity::routeBoardTap(const int x, const int y) {
 // WAS act on the board as it has become. See Activity::surfaceMeaning.
 uint32_t TakActivity::surfaceMeaning() const {
   uint32_t meaning = paintclock::mixMeaning(paintclock::kMeaningSeed, static_cast<uint32_t>(view));
+  meaning = paintclock::mixMeaning(meaning, static_cast<uint32_t>(helpPage));
   meaning = paintclock::mixMeaning(meaning, game.plyNumber);
   meaning = paintclock::mixMeaning(meaning, static_cast<uint32_t>(turn.from + 1));
   meaning = paintclock::mixMeaning(meaning, turn.carry);
@@ -154,8 +163,40 @@ void TakActivity::loop() {
   switch (action.action) {
     case ui::ActionMenuRow:
       if (view != tak::Screen::Menu) break;
-      startGame(action.value == static_cast<int>(ui::MenuRow::TwoPlayers) ? tak::Opponent::Human
-                                                                          : tak::Opponent::Computer);
+      if (action.value == static_cast<int>(ui::MenuRow::HowTo)) {
+        helpPage = 0;
+        showScreen(tak::Screen::HowTo);
+      } else {
+        openSetup(action.value == static_cast<int>(ui::MenuRow::TwoPlayers) ? tak::Opponent::Human
+                                                                            : tak::Opponent::Computer);
+      }
+      break;
+    case ui::ActionHowToNext:
+      if (view != tak::Screen::HowTo || !surfaceRevealed()) break;
+      if (helpPage + 1 < ui::howToPages()) {
+        ++helpPage;
+        requestUpdate();
+      } else {
+        showScreen(tak::Screen::Menu);
+      }
+      break;
+    case ui::ActionSize:
+      if (view != tak::Screen::Setup || !tak::validSize(action.value)) break;
+      boardSize = action.value;
+      requestUpdate();
+      break;
+    case ui::ActionSeat:
+      if (view != tak::Screen::Setup) break;
+      player = action.value == 1 ? tak::Color::Black : tak::Color::White;
+      requestUpdate();
+      break;
+    case ui::ActionLevel:
+      if (view != tak::Screen::Setup || action.value < 0 || action.value > 2) break;
+      level = static_cast<tak::Level>(action.value);
+      requestUpdate();
+      break;
+    case ui::ActionStart:
+      if (view == tak::Screen::Setup) startGame();
       break;
     case ui::ActionBoard:
       routeBoardTap(tapX, tapY);
@@ -170,7 +211,7 @@ void TakActivity::loop() {
       requestUpdate();
       break;
     case ui::ActionAgain:
-      if (view == tak::Screen::Result) startGame(opponent);
+      if (view == tak::Screen::Result) startGame();
       break;
     case ui::ActionDone:
       if (view == tak::Screen::Result) showScreen(tak::Screen::Menu);
@@ -194,9 +235,10 @@ void TakActivity::render(RenderLock&&) {
       model.game = &game;
       model.turn = &turn;
       model.opponent = opponent;
+      model.player = player;
       model.thinking = thinking;
       // The same layout the builder will draw from, kept for the next tap.
-      layout = ui::layoutFor(target.deviceContext());
+      layout = ui::layoutFor(target.deviceContext(), game.size);
       ui::buildBoard(screen, model);
       if (++paintsSinceFlash >= kFlashEvery) {
         flashOnNextPaint = true;
@@ -208,7 +250,23 @@ void TakActivity::render(RenderLock&&) {
       ui::ResultModel model;
       model.game = &game;
       model.opponent = opponent;
+      model.player = player;
       ui::buildResult(screen, model);
+      break;
+    }
+    case tak::Screen::Setup: {
+      ui::SetupModel model;
+      model.vsComputer = opponent == tak::Opponent::Computer;
+      model.size = boardSize;
+      model.player = player;
+      model.level = level;
+      ui::buildSetup(screen, model);
+      break;
+    }
+    case tak::Screen::HowTo: {
+      ui::HowToModel model;
+      model.page = helpPage;
+      ui::buildHowTo(screen, model);
       break;
     }
     case tak::Screen::Menu:
