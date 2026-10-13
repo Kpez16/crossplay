@@ -7455,6 +7455,47 @@ void testTheTakHowToPagesAndEnds() {
   }
 }
 
+void testTheTakHowToWordsNeverTouchAnythingElse() {
+  fui::DeviceContext sizes[3] = {device(), device(), device()};
+  sizes[1].width = 540;
+  sizes[1].height = 960;
+  sizes[2].width = 960;
+  sizes[2].height = 540;
+  for (const fui::DeviceContext& ctx : sizes) {
+    for (int page = 0; page < takui::howToPages(); ++page) {
+      takui::HowToModel model;
+      model.page = page;
+      Rendered out;
+      buildTak<takui::HowToModel, takui::buildHowTo>(out, model, ctx);
+
+      const FakeTarget::TextRun* tap = out.target.find(page + 1 < takui::howToPages() ? "TAP TO CONTINUE" : "TAP TO FINISH");
+      CHECK(tap != nullptr);
+      // The caption is the one wrapped run on the page.
+      const FakeTarget::TextRun* caption = nullptr;
+      const FakeTarget::TextRun* title = nullptr;
+      for (const auto& run : out.target.texts) {
+        if (run.style.maxLines > 1) caption = &run;
+        if (run.style.font == toybox::kDisplayFont && run.rect.y > 60) title = &run;
+      }
+      CHECK(caption != nullptr && title != nullptr);
+      if (tap == nullptr || caption == nullptr || title == nullptr) continue;
+
+      CHECK(caption->rect.x >= 0 && caption->rect.right() <= ctx.width);
+      CHECK(caption->rect.bottom() <= ctx.height);
+      CHECK(!rectsOverlap(caption->rect, tap->rect));
+      CHECK(!rectsOverlap(caption->rect, title->rect));
+      CHECK(!rectsOverlap(tap->rect, title->rect));
+      // And the lesson board: the heavy frame round the three-by-three grid.
+      for (const auto& stroke : out.target.strokes) {
+        if (stroke.width != toybox::kBoardFrame || stroke.rect.width > 500) continue;
+        CHECK(!rectsOverlap(stroke.rect, caption->rect));
+        CHECK(!rectsOverlap(stroke.rect, tap->rect));
+        CHECK(!rectsOverlap(stroke.rect, title->rect));
+      }
+    }
+  }
+}
+
 void testTheTakBoardKnowsWhichSeatIsYours() {
   tak::Game game;
   tak::reset(game, tak::kSmallSize);
@@ -15339,6 +15380,7 @@ int main() {
   testTheTakSetupOffersItsChoices();
   testTheTakSetupFitsEverySize();
   testTheTakHowToPagesAndEnds();
+  testTheTakHowToWordsNeverTouchAnythingElse();
   testTheTakBoardKnowsWhichSeatIsYours();
   testShelfFolderDrawsItsOwnNameAndRows();
   testShelfFolderMarksNoRow();

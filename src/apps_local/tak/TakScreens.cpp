@@ -529,7 +529,7 @@ void buildSetup(toybox::Screen& screen, const SetupModel& model) {
   choiceRow(screen, area, y, "LEVEL", kLevels, 3, level, ActionLevel, kLevelValues, kLevelNotes[level]);
 }
 
-int howToPages() { return 6; }
+int howToPages() { return 8; }
 
 namespace {
 
@@ -562,6 +562,7 @@ struct Lesson {
                  static_cast<int16_t>(cell / 9 + 2), fui::Color::Black);
   }
   void mark(const int col, const int row) const { toybox::bracket(screen, box(col, row), static_cast<int16_t>(cell / 4), 4); }
+  // A caption in the square BELOW, so it never sits on the stone it names.
   void label(const int col, const int row, const char* words) const {
     const fui::Rect b = box(col, row);
     text(screen, fui::makeRect(b.x, static_cast<int16_t>(b.bottom() + 6), b.width, 24), words, toybox::kTileFont,
@@ -573,19 +574,28 @@ void drawLesson(toybox::Screen& screen, const int page, const int16_t left, cons
   drawGrid(screen, left, top, cell, 3);
   const Lesson lesson{screen, left, top, cell};
   switch (page) {
-    case 0:  // a road of white flats edge to edge
+    case 0:  // a road that bends: top edge to bottom edge, side to side all the way
+      lesson.put(0, 0, "W");
       lesson.put(0, 1, "W");
       lesson.put(1, 1, "W");
-      lesson.put(2, 1, "W");
-      lesson.put(0, 0, "B");
+      lesson.put(1, 2, "W");
+      lesson.put(2, 0, "B");
       lesson.put(2, 2, "B");
-      lesson.put(1, 2, "B", PieceKind::Wall);
       break;
-    case 1:  // the opening swap: each side's first stone is the other's
+    case 1:  // corners do not connect: three white stones in a diagonal, boxed in
+      lesson.put(0, 0, "W");
+      lesson.put(1, 1, "W");
+      lesson.put(2, 2, "W");
+      lesson.put(1, 0, "B");
+      lesson.put(0, 1, "B");
+      lesson.put(2, 1, "B");
+      lesson.put(1, 2, "B");
+      break;
+    case 2:  // the opening swap: each side's first stone is the other's
       lesson.put(0, 0, "B");
       lesson.put(2, 2, "W");
       break;
-    case 2:  // the three stones
+    case 3:  // the three stones
       lesson.put(0, 1, "W");
       lesson.put(1, 1, "W", PieceKind::Wall);
       lesson.put(2, 1, "W", PieceKind::Cap);
@@ -593,15 +603,22 @@ void drawLesson(toybox::Screen& screen, const int page, const int16_t left, cons
       lesson.label(1, 1, "WALL");
       lesson.label(2, 1, "CAP");
       break;
-    case 3:  // a stack, and where it may go
+    case 4:  // a stack, and where its first stone may go
       lesson.put(0, 1, "BWW");
       lesson.mark(0, 1);
       lesson.dot(1, 1);
-      lesson.dot(2, 1);
       lesson.dot(0, 0);
       lesson.dot(0, 2);
       break;
-    case 4:  // a capstone flattening a wall
+    case 5:  // three stones dealt along a line: one, then two
+      lesson.put(0, 1, "WWW");
+      lesson.mark(0, 1);
+      lesson.dot(1, 1);
+      lesson.dot(2, 1);
+      lesson.label(1, 1, "DROP 1");
+      lesson.label(2, 1, "DROP 2");
+      break;
+    case 6:  // a capstone flattening a wall
       lesson.put(0, 1, "W", PieceKind::Cap);
       lesson.put(1, 1, "B", PieceKind::Wall);
       lesson.mark(1, 1);
@@ -644,6 +661,9 @@ void buildHowTo(toybox::Screen& screen, const HowToModel& model) {
   const fui::Rect body = screen.body();
   screen.frame().hit(body, ActionHowToNext, 0);
 
+  // Built from the bottom up: dots, then the tap line, then everything else in
+  // what is left. Nothing below is placed at a fixed offset from anything it
+  // could collide with.
   constexpr int16_t kDot = 14;
   constexpr int16_t kDotGap = 10;
   const int16_t dotRow = static_cast<int16_t>(pages * kDot + (pages - 1) * kDotGap);
@@ -657,46 +677,89 @@ void buildHowTo(toybox::Screen& screen, const HowToModel& model) {
       screen.target().stroke(dotAt, fui::Paint::dither(fui::Color::DarkGray), toybox::kHairline, 7);
     }
   }
-  text(screen, fui::makeRect(body.x, static_cast<int16_t>(dotY - 34), body.width, 22),
-       page + 1 == pages ? "TAP TO FINISH" : "TAP TO CONTINUE", toybox::kTileFont, fui::TextAlign::Center);
+  const fui::Rect tapLine = fui::makeRect(body.x, static_cast<int16_t>(dotY - 34), body.width, 22);
+  text(screen, tapLine, page + 1 == pages ? "TAP TO FINISH" : "TAP TO CONTINUE", toybox::kTileFont,
+       fui::TextAlign::Center);
 
-  static const char* const kTitles[] = {"THE GOAL", "FIRST MOVE", "THE STONES", "MOVING", "WALLS AND CAPS", "WINNING"};
+  static const char* const kTitles[] = {"THE GOAL",  "CORNERS",       "FIRST MOVE", "THE STONES",
+                                        "MOVING",    "DEALING STONES", "WALLS AND CAPS", "WINNING"};
+  const fui::Rect titleRect = fui::makeRect(body.x, body.y, body.width, 46);
   fui::TextStyle title;
   title.font = toybox::kDisplayFont;
   title.align = fui::TextAlign::Center;
-  screen.target().text(toybox::inkCentred(fui::makeRect(body.x, body.y, body.width, 46), toybox::kDisplayCut),
-                       kTitles[page], title);
+  screen.target().text(toybox::inkCentred(titleRect, toybox::kDisplayCut), kTitles[page], title);
 
   static const char* const kLines[] = {
-      "BUILD AN UNBROKEN ROAD OF YOUR STONES FROM ONE EDGE TO THE OPPOSITE EDGE. THE FIRST ROAD WINS.",
-      "YOUR FIRST MOVE PLACES ONE OF YOUR OPPONENT'S FLATS, AND THEY DO THE SAME. AFTER THAT, PLACE A STONE OR MOVE A "
+      "BUILD AN UNBROKEN ROAD OF YOUR STONES FROM ONE EDGE TO THE OPPOSITE EDGE. IT CAN BEND AND TURN. THE FIRST ROAD "
+      "WINS.",
+      "STONES CONNECT SIDE TO SIDE. STONES THAT ONLY TOUCH AT A CORNER ARE NOT CONNECTED, SO THIS IS NOT A ROAD.",
+      "EACH PLAYER'S FIRST MOVE PLACES ONE OF THEIR OPPONENT'S FLATS. AFTER, PLAYERS MUST PLACE OR MOVE A PIECE OR "
       "STACK.",
       "A FLAT BUILDS ROADS AND CAN BE STACKED ON. A WALL BLOCKS ROADS. A CAPSTONE BUILDS ROADS AND IS NEVER COVERED.",
-      "TAP YOUR STACK TO LIFT STONES, THEN TAP ALONG A LINE TO DROP ONE ON EACH SQUARE. YOU MAY CARRY AS MANY AS THE "
-      "BOARD IS WIDE.",
+      "TAP YOUR STACK TO LIFT ITS TOP STONE. TAP IT AGAIN TO LIFT MORE, UP TO THE BOARD'S WIDTH. THEN TAP A "
+      "NEIGHBOURING SQUARE TO START MOVING.",
+      "MOVE IN A STRAIGHT LINE. DROP AT LEAST ONE STONE ON EVERY SQUARE YOU PASS, AND DEAL OUT THE REST HOWEVER YOU "
+      "LIKE. TAP A SQUARE AGAIN TO DROP MORE THERE. THE MOVE ENDS WHEN YOUR HAND IS EMPTY.",
       "NOTHING MOVES ONTO A WALL OR CAPSTONE, EXCEPT A CAPSTONE ALONE, WHICH FLATTENS A WALL. THE 3 BY 3 BOARD HAS NO "
       "CAPSTONES.",
       "A ROAD WINS AT ONCE. IF THE BOARD FILLS OR A PLAYER RUNS OUT OF STONES, THE MOST FLATS ON TOP WINS.",
   };
-  fui::TextStyle caption;
-  caption.font = toybox::kUiFont;
-  caption.align = fui::TextAlign::Center;
-  caption.maxLines = 5;
-  const int16_t captionHeight = 190;
-  const int16_t captionTop = static_cast<int16_t>(dotY - 40 - captionHeight);
-  screen.target().text(fui::makeRect(body.x, captionTop, body.width, captionHeight), kLines[page], caption);
 
-  // The lesson, as large as the room between the title and the words allows.
-  const int16_t bandTop = static_cast<int16_t>(body.y + 60);
-  const int16_t room = static_cast<int16_t>(captionTop - bandTop - 30);
-  int16_t cell = static_cast<int16_t>(room / 3);
-  const int16_t wide = static_cast<int16_t>((body.width - toybox::kBoardFrame * 2) / 3);
-  if (wide < cell) cell = wide;
-  if (cell > 130) cell = 130;
-  if (cell < 24) return;
-  const int16_t side = static_cast<int16_t>(cell * 3);
-  const int16_t top = static_cast<int16_t>(bandTop + (room - side) / 2 + toybox::kBoardFrame);
-  drawLesson(screen, page, static_cast<int16_t>(body.x + (body.width - side) / 2), top, cell);
+  // What is left for the lesson and its words, between the title and the tap line.
+  const int16_t areaTop = static_cast<int16_t>(titleRect.bottom() + toybox::kGutter);
+  const int16_t areaBottom = static_cast<int16_t>(tapLine.y - toybox::kGutter);
+  const bool sideways = body.width > body.height;
+
+  // The words are measured, not guessed: the block is exactly as tall as the
+  // text wraps to at this width, so there is nothing to overlap and nothing
+  // cut off. If a page's words are too long to leave room for a readable
+  // diagram, they step down a size rather than crush it.
+  fui::TextStyle caption;
+  caption.align = fui::TextAlign::Center;
+  caption.maxLines = 10;
+  const int16_t captionWidth = sideways ? static_cast<int16_t>(body.width / 2 - toybox::kGutter) : body.width;
+  int16_t captionHeight = 0;
+  const fui::FontId fonts[2] = {toybox::kUiFont, toybox::kTileFont};
+  int16_t cell = 0;
+  int16_t gridTop = 0;
+  int16_t gridLeft = 0;
+  fui::Rect captionRect{};
+  for (const fui::FontId font : fonts) {
+    caption.font = font;
+    captionHeight = fui::measureWrappedText(screen.target(), kLines[page], caption, captionWidth).height;
+    if (sideways) {
+      const int16_t room = static_cast<int16_t>(areaBottom - areaTop);
+      cell = static_cast<int16_t>((room - toybox::kBoardFrame * 2) / 3);
+      const int16_t wide = static_cast<int16_t>((body.width / 2 - toybox::kBoardFrame * 2) / 3);
+      if (wide < cell) cell = wide;
+      const int16_t side = static_cast<int16_t>(cell * 3);
+      gridLeft = static_cast<int16_t>(body.x + (body.width / 2 - side) / 2);
+      gridTop = static_cast<int16_t>(areaTop + (room - side) / 2);
+      const int16_t textLeft = static_cast<int16_t>(body.x + body.width / 2 + toybox::kGutter);
+      const int16_t textTop = static_cast<int16_t>(areaTop + (room - captionHeight) / 2);
+      captionRect = fui::makeRect(textLeft, textTop < areaTop ? areaTop : textTop, captionWidth, captionHeight);
+      if (captionHeight <= room) break;
+    } else {
+      const int16_t room = static_cast<int16_t>(areaBottom - areaTop - captionHeight - toybox::kGutter);
+      cell = static_cast<int16_t>((room - toybox::kBoardFrame * 2) / 3);
+      const int16_t wide = static_cast<int16_t>((body.width - toybox::kBoardFrame * 2) / 3);
+      if (wide < cell) cell = wide;
+      const int16_t side = static_cast<int16_t>(cell * 3);
+      captionRect = fui::makeRect(body.x, static_cast<int16_t>(areaBottom - captionHeight), body.width, captionHeight);
+      gridLeft = static_cast<int16_t>(body.x + (body.width - side) / 2);
+      gridTop = static_cast<int16_t>(areaTop + (room - side) / 2 + toybox::kBoardFrame);
+      if (cell >= 64) break;
+    }
+  }
+  if (cell > 130) {
+    // A tall lesson on a small board: keep it a board, not a wall.
+    const int16_t side = 130 * 3;
+    gridLeft = static_cast<int16_t>(gridLeft + (cell * 3 - side) / 2);
+    gridTop = static_cast<int16_t>(gridTop + (cell * 3 - side) / 2);
+    cell = 130;
+  }
+  screen.target().text(captionRect, kLines[page], caption);
+  if (cell >= 24) drawLesson(screen, page, gridLeft, gridTop, cell);
 }
 
 }  // namespace takui
