@@ -44,14 +44,15 @@ void drawPiece(toybox::Screen& screen, const int16_t cx, const int16_t cy, const
     toybox::disc(screen, cx, cy, static_cast<int16_t>(inner - weight), body);
     return;
   }
-  const int16_t halfW = kind == PieceKind::Wall ? static_cast<int16_t>(cell / 9) : static_cast<int16_t>(cell * 26 / 100);
+  const int16_t halfW =
+      kind == PieceKind::Wall ? static_cast<int16_t>(cell / 9) : static_cast<int16_t>(cell * 26 / 100);
   const int16_t halfH = kind == PieceKind::Wall ? static_cast<int16_t>(cell * 34 / 100) : halfW;
   const fui::Rect box = fui::makeRect(static_cast<int16_t>(cx - halfW), static_cast<int16_t>(cy - halfH),
                                       static_cast<int16_t>(halfW * 2), static_cast<int16_t>(halfH * 2));
   screen.target().fill(box, fui::Paint::solid(fui::Color::Black));
-  const fui::Rect inside = fui::makeRect(static_cast<int16_t>(box.x + weight), static_cast<int16_t>(box.y + weight),
-                                         static_cast<int16_t>(box.width - weight * 2),
-                                         static_cast<int16_t>(box.height - weight * 2));
+  const fui::Rect inside =
+      fui::makeRect(static_cast<int16_t>(box.x + weight), static_cast<int16_t>(box.y + weight),
+                    static_cast<int16_t>(box.width - weight * 2), static_cast<int16_t>(box.height - weight * 2));
   screen.target().fill(inside, fui::Paint::solid(body));
 }
 
@@ -106,12 +107,13 @@ void reserveLine(toybox::Screen& screen, const fui::Rect& row, const Color color
   toybox::disc(screen, cx, cy, static_cast<int16_t>(radius - 2), ink(color));
   char line[48];
   // A board with no capstones does not mention them.
-  char caps[12] = "";
+  char caps[24] = "";
   if (tak::capstonesFor(size) > 0) std::snprintf(caps, sizeof(caps), "  %d CAP", reserve.capstones);
   std::snprintf(line, sizeof(line), "%s%s%s  %d FLAT%s", toMove ? "> " : "", colorName(color), you ? " (YOU)" : "",
                 reserve.flats, caps);
-  text(screen, fui::makeRect(static_cast<int16_t>(row.x + radius * 2 + 12), row.y,
-                             static_cast<int16_t>(row.width - radius * 2 - 12), row.height),
+  text(screen,
+       fui::makeRect(static_cast<int16_t>(row.x + radius * 2 + 12), row.y,
+                     static_cast<int16_t>(row.width - radius * 2 - 12), row.height),
        line, toybox::kTileFont, fui::TextAlign::Left);
 }
 
@@ -125,15 +127,15 @@ int flatsOnTop(const tak::Game& game, const Color color) {
 
 void drawGrid(toybox::Screen& screen, const int16_t left, const int16_t top, const int16_t cell, const int size) {
   const int16_t side = static_cast<int16_t>(cell * size);
-  screen.target().stroke(fui::makeRect(static_cast<int16_t>(left - toybox::kBoardFrame),
-                                       static_cast<int16_t>(top - toybox::kBoardFrame),
-                                       static_cast<int16_t>(side + toybox::kBoardFrame * 2),
-                                       static_cast<int16_t>(side + toybox::kBoardFrame * 2)),
-                         fui::Paint::solid(fui::Color::Black), toybox::kBoardFrame);
+  screen.target().stroke(
+      fui::makeRect(static_cast<int16_t>(left - toybox::kBoardFrame), static_cast<int16_t>(top - toybox::kBoardFrame),
+                    static_cast<int16_t>(side + toybox::kBoardFrame * 2),
+                    static_cast<int16_t>(side + toybox::kBoardFrame * 2)),
+      fui::Paint::solid(fui::Color::Black), toybox::kBoardFrame);
   for (int row = 0; row < size; ++row) {
     for (int col = 0; col < size; ++col) {
-      const fui::Rect box = fui::makeRect(static_cast<int16_t>(left + col * cell),
-                                          static_cast<int16_t>(top + row * cell), cell, cell);
+      const fui::Rect box =
+          fui::makeRect(static_cast<int16_t>(left + col * cell), static_cast<int16_t>(top + row * cell), cell, cell);
       if (((row + col) & 1) == 1) screen.target().fill(box, fui::Paint::dither(fui::Color::LightGray));
       screen.target().stroke(box, fui::Paint::solid(fui::Color::Black), toybox::kHairline);
     }
@@ -154,9 +156,10 @@ void ornament(toybox::Screen& screen, const int16_t left, const int16_t top, con
     stack.height = static_cast<uint8_t>(n);
     stack.colors = bits;
     stack.topKind = kind;
-    drawStack(screen,
-              fui::makeRect(static_cast<int16_t>(left + col * cell), static_cast<int16_t>(top + row * cell), cell, cell),
-              stack);
+    drawStack(
+        screen,
+        fui::makeRect(static_cast<int16_t>(left + col * cell), static_cast<int16_t>(top + row * cell), cell, cell),
+        stack);
   };
   put(0, 0, "W", PieceKind::Flat);
   put(1, 0, "W", PieceKind::Flat);
@@ -299,8 +302,9 @@ void buildBoard(toybox::Screen& screen, const BoardModel& model) {
       case tak::Tap::Step:
       case tak::Tap::Add:
         if (empty) {
-          toybox::disc(screen, static_cast<int16_t>(box.x + box.width / 2), static_cast<int16_t>(box.y + box.height / 2),
-                       static_cast<int16_t>(layout.cell / 9 + 2), fui::Color::Black);
+          toybox::disc(screen, static_cast<int16_t>(box.x + box.width / 2),
+                       static_cast<int16_t>(box.y + box.height / 2), static_cast<int16_t>(layout.cell / 9 + 2),
+                       fui::Color::Black);
         } else {
           toybox::bracket(screen, box, static_cast<int16_t>(layout.cell / 4), 4);
         }
@@ -323,7 +327,7 @@ void buildBoard(toybox::Screen& screen, const BoardModel& model) {
       cell = tak::cellAfter(game, cell, turn.dir);
       if (cell == tak::kNothing) break;
       const fui::Rect box = cellRect(layout, cell);
-      char badge[8];
+      char badge[16];
       std::snprintf(badge, sizeof(badge), "+%d", turn.drops[i]);
       const fui::Rect tag = fui::makeRect(static_cast<int16_t>(box.x + 3), static_cast<int16_t>(box.y + 3), 38, 24);
       screen.target().fill(tag, fui::Paint::solid(fui::Color::Black));
@@ -418,11 +422,20 @@ void buildResult(toybox::Screen& screen, const ResultModel& model) {
 
   const char* title = "A DRAW";
   switch (verdict) {
-    case tak::Verdict::YouWon: title = "YOU WIN"; break;
-    case tak::Verdict::YouLost: title = "THEY WIN"; break;
-    case tak::Verdict::WhiteWon: title = "WHITE WINS"; break;
-    case tak::Verdict::BlackWon: title = "BLACK WINS"; break;
-    case tak::Verdict::Draw: break;
+    case tak::Verdict::YouWon:
+      title = "YOU WIN";
+      break;
+    case tak::Verdict::YouLost:
+      title = "THEY WIN";
+      break;
+    case tak::Verdict::WhiteWon:
+      title = "WHITE WINS";
+      break;
+    case tak::Verdict::BlackWon:
+      title = "BLACK WINS";
+      break;
+    case tak::Verdict::Draw:
+      break;
   }
   toyboxChrome(screen, title);
 
@@ -561,7 +574,9 @@ struct Lesson {
     toybox::disc(screen, static_cast<int16_t>(b.x + b.width / 2), static_cast<int16_t>(b.y + b.height / 2),
                  static_cast<int16_t>(cell / 9 + 2), fui::Color::Black);
   }
-  void mark(const int col, const int row) const { toybox::bracket(screen, box(col, row), static_cast<int16_t>(cell / 4), 4); }
+  void mark(const int col, const int row) const {
+    toybox::bracket(screen, box(col, row), static_cast<int16_t>(cell / 4), 4);
+  }
   // A caption in the square BELOW, so it never sits on the stone it names.
   void label(const int col, const int row, const char* words) const {
     const fui::Rect b = box(col, row);
@@ -681,8 +696,8 @@ void buildHowTo(toybox::Screen& screen, const HowToModel& model) {
   text(screen, tapLine, page + 1 == pages ? "TAP TO FINISH" : "TAP TO CONTINUE", toybox::kTileFont,
        fui::TextAlign::Center);
 
-  static const char* const kTitles[] = {"THE GOAL",  "CORNERS",       "FIRST MOVE", "THE STONES",
-                                        "MOVING",    "DEALING STONES", "WALLS AND CAPS", "WINNING"};
+  static const char* const kTitles[] = {"THE GOAL", "CORNERS",        "FIRST MOVE",     "THE STONES",
+                                        "MOVING",   "DEALING STONES", "WALLS AND CAPS", "WINNING"};
   const fui::Rect titleRect = fui::makeRect(body.x, body.y, body.width, 46);
   fui::TextStyle title;
   title.font = toybox::kDisplayFont;
