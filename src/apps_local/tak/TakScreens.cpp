@@ -224,22 +224,24 @@ void buildMenu(toybox::Screen& screen, const MenuModel& model) {
   toyboxChrome(screen, "TAK");
 
   fui::ListItem rows[static_cast<int>(MenuRow::Count)] = {};
-  rows[static_cast<int>(MenuRow::Play)].label = "PLAY";
-  rows[static_cast<int>(MenuRow::Play)].subtitle = "AGAINST THE DEVICE";
-  rows[static_cast<int>(MenuRow::Play)].actionValue = static_cast<int16_t>(MenuRow::Play);
-  rows[static_cast<int>(MenuRow::TwoPlayers)].label = "TWO PLAYERS";
-  rows[static_cast<int>(MenuRow::TwoPlayers)].subtitle = "PASS THE DEVICE";
-  rows[static_cast<int>(MenuRow::TwoPlayers)].actionValue = static_cast<int16_t>(MenuRow::TwoPlayers);
-  rows[static_cast<int>(MenuRow::HowTo)].label = "HOW TO PLAY";
-  rows[static_cast<int>(MenuRow::HowTo)].actionValue = static_cast<int16_t>(MenuRow::HowTo);
+  int count = 0;
+  const auto door = [&](const MenuRow which, const char* label, const char* subtitle) {
+    rows[count].label = label;
+    rows[count].subtitle = subtitle;
+    rows[count].actionValue = static_cast<int16_t>(which);
+    ++count;
+  };
+  if (model.hasSave) door(MenuRow::Continue, "CONTINUE", model.saveNote);
+  door(MenuRow::Play, model.hasSave ? "NEW GAME" : "PLAY", "AGAINST THE DEVICE");
+  door(MenuRow::TwoPlayers, "TWO PLAYERS", "PASS THE DEVICE");
+  door(MenuRow::HowTo, "HOW TO PLAY", nullptr);
 
   const int selected = model.selected < 0 ? 0 : model.selected;
   fui::ListProps list;
   list.items = rows;
-  list.count = static_cast<uint16_t>(MenuRow::Count);
+  list.count = static_cast<uint16_t>(count);
   list.selectedIndex = static_cast<int16_t>(selected);
   list.action = ActionMenuRow;
-  const int count = static_cast<int>(MenuRow::Count);
   const int16_t listHeight =
       static_cast<int16_t>(count * toybox::kRowHeight + (count - 1) * toybox::kGutter / 2 + toybox::kGutter);
   const fui::Rect content = screen.contentRect();
@@ -392,7 +394,10 @@ void buildBoard(toybox::Screen& screen, const BoardModel& model) {
     button.action = ActionKind;
     button.value = static_cast<int16_t>(i);
     button.enabled = tak::kindAvailable(game, kKinds[i]);
-    button.state = kKinds[i] == turn.kind ? fui::StateSelected : fui::StateNormal;
+    // The same convention as the setup screen: filled is chosen, outlined is
+    // open, and a kind that has run out is dithered rather than missing.
+    button.styles = !button.enabled ? toybox::disabledButtonStyles()
+                                    : (kKinds[i] == turn.kind ? toybox::invertedStyles() : toybox::rowStyles());
     screen.button(button, fui::makeRect(static_cast<int16_t>(controls.x + i * (width + toybox::kGutter)), controls.y,
                                         width, controls.height));
   }
@@ -469,7 +474,8 @@ int16_t choiceRow(toybox::Screen& screen, const fui::Rect& area, const int16_t y
     button.label = names[i];
     button.action = action;
     button.value = values[i];
-    button.state = i == selected ? fui::StateSelected : fui::StateNormal;
+    // Filled is the choice made, outlined is a choice still open.
+    button.styles = i == selected ? toybox::invertedStyles() : toybox::rowStyles();
     screen.button(button, fui::makeRect(static_cast<int16_t>(area.x + i * (width + toybox::kGutter)), top, width,
                                         toybox::kPillHeight));
   }

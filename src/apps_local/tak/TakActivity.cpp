@@ -1,7 +1,10 @@
 #include "TakActivity.h"
 
+#include <HalStorage.h>
 #include <Logging.h>
 #include <Memory.h>
+
+#include <cstdio>
 
 #include "../../activities/ActivityManager.h"
 #include "../../components/UITheme.h"
@@ -28,6 +31,13 @@ constexpr uint32_t kThinkDelayMs = 250;
 // fraction of the render task's stack.
 tak::Move gScratch[tak::kMaxMoves];
 
+constexpr char kSavePath[] = "/.crosspoint/tak.sav";
+constexpr char kSaveTmpPath[] = "/.crosspoint/tak.sav.tmp";
+
+// The encoded game. Static: a few hundred bytes is too much for the render
+// task's stack to be casual about.
+uint8_t gSaveBytes[tak::kSavedBytes + 1];
+
 constexpr tak::PieceKind kKinds[3] = {tak::PieceKind::Flat, tak::PieceKind::Wall, tak::PieceKind::Cap};
 
 }  // namespace
@@ -40,6 +50,7 @@ void TakActivity::onEnter() {
   toybox::ensureFonts(renderer);
   tak::reset(game);
   tak::clearHand(turn);
+  loadSave();
   view = tak::Screen::Menu;
   thinking = false;
   menuSelected = -1;
@@ -48,6 +59,81 @@ void TakActivity::onEnter() {
 }
 
 void TakActivity::onExit() { thinking = false; }
+
+void TakActivity::describeSave() {
+  const int turnNumber = saved.game.plyNumber / 2 + 1;
+  if (saved.opponent == tak::Opponent::Human) {
+    std::snprintf(saveNote, sizeof(saveNote), "%d BY %d, TWO PLAYERS, TURN %d", saved.game.size, saved.game.size,
+                  turnNumber);
+    return;
+  }
+  static const char* const kLevels[3] = {"EASY", "MEDIUM", "HARD"};
+  std::snprintf(saveNote, sizeof(saveNote), "%d BY %d, %s, TURN %d", saved.game.size, saved.game.size,
+                kLevels[static_cast<int>(saved.level)], turnNumber);
+}
+
+void TakActivity::loadSave() {
+  hasSave = false;
+  if (!Storage.exists(kSavePath)) return;
+  HalFile file;
+  if (!Storage.openFileForRead("TAK", kSavePath, file)) return;
+  const int got = file.read(gSaveBytes, tak::kSavedBytes + 1);
+  if (got <= 0 || !tak::decodeSaved(gSaveBytes, static_cast<size_t>(got), saved)) {
+    // A file that does not read back is not worth keeping, and says so once.
+    LOG_ERR("TAK", "Discarding a saved game that does not read back (%d bytes)", got);
+    return;
+  }
+  hasSave = true;
+  describeSave();
+}
+
+void TakActivity::persist() {
+  saved.game = game;
+  saved.opponent = opponent;
+  saved.player = player;
+  saved.level = level;
+  saved.rng = rngState;
+  const size_t length = tak::encodeSaved(saved, gSaveBytes);
+  // Written beside the real file and then swapped in, so a restart in the
+  // middle of the write leaves the previous move's save, not half of this one.
+  bool written = false;
+  {
+    HalFile file;
+    if (Storage.openFileForWrite("TAK", kSaveTmpPath, file)) {
+      written = file.write(gSaveBytes, length) == length;
+      file.flush();
+    }
+  }
+  if (!written || !Storage.replaceFile(kSaveTmpPath, kSavePath)) {
+    LOG_ERR("TAK", "Could not save the game");
+    return;
+  }
+  hasSave = true;
+  describeSave();
+}
+
+void TakActivity::clearSave() {
+  hasSave = false;
+  if (Storage.exists(kSavePath)) Storage.remove(kSavePath);
+}
+
+void TakActivity::continueGame() {
+  if (!hasSave) return;
+  game = saved.game;
+  opponent = saved.opponent;
+  player = saved.player;
+  level = saved.level;
+  boardSize = game.size;
+  rngState = saved.rng | 1u;
+  tak::clearHand(turn);
+  turn.kind = tak::usableKind(game, turn.kind);
+  paintsSinceFlash = 0;
+  showScreen(tak::Screen::Board);
+  if (computersTurn()) {
+    thinking = true;
+    thinkAt = static_cast<uint32_t>(millis()) + kThinkDelayMs;
+  }
+}
 
 bool TakActivity::computersTurn() const {
   return opponent == tak::Opponent::Computer && game.toMove != player && !game.over;
@@ -82,9 +168,12 @@ void TakActivity::startGame() {
 
 void TakActivity::afterMove() {
   if (game.over) {
+    // A finished game is not one to come back to.
+    clearSave();
     showScreen(tak::Screen::Result);
     return;
   }
+  persist();
   if (computersTurn()) {
     thinking = true;
     thinkAt = static_cast<uint32_t>(millis()) + kThinkDelayMs;
@@ -163,7 +252,9 @@ void TakActivity::loop() {
   switch (action.action) {
     case ui::ActionMenuRow:
       if (view != tak::Screen::Menu) break;
-      if (action.value == static_cast<int>(ui::MenuRow::HowTo)) {
+      if (action.value == static_cast<int>(ui::MenuRow::Continue)) {
+        continueGame();
+      } else if (action.value == static_cast<int>(ui::MenuRow::HowTo)) {
         helpPage = 0;
         showScreen(tak::Screen::HowTo);
       } else {
@@ -273,6 +364,8 @@ void TakActivity::render(RenderLock&&) {
     default: {
       ui::MenuModel model;
       model.selected = menuSelected;
+      model.hasSave = hasSave;
+      model.saveNote = saveNote;
       ui::buildMenu(screen, model);
       break;
     }

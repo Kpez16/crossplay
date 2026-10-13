@@ -8,5 +8,7 @@ mkdir -p "$BUILD_DIR"
 SRC=../../src/apps_local/tak
 "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -O2 -I$SRC test_tak.cpp -o "$BUILD_DIR/test_tak"
 "${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -O2 -I$SRC test_flow.cpp -o "$BUILD_DIR/test_flow"
+"${CXX:-c++}" -std=c++17 -Wall -Wextra -Werror -O2 -I$SRC test_save.cpp -o "$BUILD_DIR/test_save"
+"$BUILD_DIR/test_save"
 "$BUILD_DIR/test_flow"
 "$BUILD_DIR/test_tak"

@@ -6,6 +6,7 @@
 #include "../ui/ToyboxScreen.h"
 #include "TakCore.h"
 #include "TakFlow.h"
+#include "TakSave.h"
 #include "TakScreens.h"
 
 // Tak: build a road across the board, or hold the most flats when it fills.
@@ -31,6 +32,13 @@ class TakActivity final : public Activity {
  private:
   uint32_t surfaceMeaning() const override;
 
+  // The game left part-played, if there is one: written after every move, so a
+  // restart or a dead battery costs at most the move being made.
+  void loadSave();
+  void persist();
+  void clearSave();
+  void continueGame();
+  void describeSave();
   void openSetup(tak::Opponent who);
   void startGame();
   void afterMove();
@@ -49,6 +57,9 @@ class TakActivity final : public Activity {
   tak::Color player = tak::Color::White;
   tak::Level level = tak::Level::Medium;
   int helpPage = 0;
+  tak::Saved saved;
+  bool hasSave = false;
+  char saveNote[40] = "";
   uint32_t rngState = 1;
   // Where the board was last drawn; a tap is resolved against this.
   takui::Layout layout;

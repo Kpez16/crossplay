@@ -7494,6 +7494,35 @@ void testTheTakBoardKnowsWhichSeatIsYours() {
   CHECK(won.target.drew("YOU WIN"));
 }
 
+void testTheTakMenuDoorsAreAllReachable() {
+  // Without a saved game: three doors, valued Play, TwoPlayers, HowTo.
+  // With one: CONTINUE heads the list and PLAY becomes NEW GAME.
+  for (int withSave = 0; withSave < 2; ++withSave) {
+    takui::MenuModel model;
+    model.hasSave = withSave != 0;
+    model.saveNote = "5 BY 5, HARD, TURN 7";
+    Rendered out;
+    buildTak<takui::MenuModel, takui::buildMenu>(out, model);
+    CHECK(out.target.drew("HOW TO PLAY"));
+    CHECK(out.target.drew("TWO PLAYERS"));
+    CHECK(out.target.drew(withSave ? "NEW GAME" : "PLAY"));
+    CHECK(out.target.drew("5 BY 5, HARD, TURN 7") == (withSave != 0));
+    CHECK(out.target.drew("CONTINUE") == (withSave != 0));
+    const int rows = withSave ? 4 : 3;
+    const int listHeight = rows * toybox::kRowHeight + (rows - 1) * (toybox::kGutter / 2) + toybox::kGutter;
+    const int firstRowY = 800 - toybox::kMargin - listHeight + toybox::kRowHeight / 2;
+    const int expected[4] = {static_cast<int>(takui::MenuRow::Continue), static_cast<int>(takui::MenuRow::Play),
+                             static_cast<int>(takui::MenuRow::TwoPlayers), static_cast<int>(takui::MenuRow::HowTo)};
+    for (int row = 0; row < rows; ++row) {
+      const int y = firstRowY + row * (toybox::kRowHeight + toybox::kGutter / 2);
+      const fui::ActionEvent event = out.tap(240, y);
+      CHECK(event.action == takui::ActionMenuRow);
+      CHECK(event.value == expected[row + (withSave ? 0 : 1)]);
+    }
+    CHECK(!out.interactions.overflowed());
+  }
+}
+
 // --- knucklebones ----------------------------------------------------------
 
 template <typename Model, void (*Build)(toybox::Screen&, const Model&)>
@@ -15277,6 +15306,7 @@ int main() {
   testTheCheckersHowToPagesAndEnds();
   testTheTakBoardGeometryIsOneInverse();
   testTheTakMenuOffersItsTwoDoors();
+  testTheTakMenuDoorsAreAllReachable();
   testTheTakBoardSaysWhoseMoveAndWhatItOffers();
   testTheTakBoardFitsEverySize();
   testTheTakResultNamesTheOutcomeFromYourSeat();

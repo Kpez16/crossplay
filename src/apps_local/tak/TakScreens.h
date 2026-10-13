@@ -27,10 +27,16 @@ enum : fui::ActionId {
   ActionStart = 11,
 };
 
-enum class MenuRow : int { Play = 0, TwoPlayers, HowTo, Count };
+// The values the rows carry. CONTINUE is only on the list when a game was left
+// part-played, and the rows after it do not change their values when it is not.
+enum class MenuRow : int { Continue = 0, Play, TwoPlayers, HowTo, Count };
 
 struct MenuModel {
+  // The visible row to show chosen, or -1 for the first.
   int selected = -1;
+  // A game was left part-played; CONTINUE heads the list, with this beneath it.
+  bool hasSave = false;
+  const char* saveNote = nullptr;
 };
 
 // The choices made before a game. The seat and the level only matter against
