@@ -54,6 +54,12 @@ class HalPowerManager {
   // Get battery percentage (range 0-100)
   uint16_t getBatteryPercentage() const;
 
+  // Pass-through to BatteryMonitor::isGaugeProvisioned() -- true once this
+  // boot's one-time gauge provisioning has succeeded (or needs none). No
+  // I2C. main.cpp uses this to keep retrying provisioning on a timer even
+  // while isUsbConnected() reports false (see that gate's own comment).
+  bool isBatteryGaugeProvisioned() const;
+
   // RAII helper class to manage power saving locks
   // Usage: create an instance of Lock in a scope to disable power saving, for example when running a task that needs
   // full performance. When the Lock instance is destroyed (goes out of scope), power saving will be re-enabled.

@@ -229,7 +229,7 @@ classify() {
     #                    test/ is reached by `pio run -t unit-tests`). They are
     #                    kept live on the build axis purely because that is the
     #                    answer today; see the note above about loosening it.
-    .gitignore)                                       echo "yes no"  ;;
+    .gitignore|.gitattributes)                        echo "yes no"  ;;
     nix/*|requirements.txt)                           echo "yes no"  ;;
     scripts_local/*)                                  echo "yes no"  ;;
     assets_local/*|sim-stubs/*|test/*)                echo "yes no"  ;;
@@ -250,6 +250,9 @@ classify() {
     # wording and exactly right about its firmware.
     docs/*|site/*|host-tests/*|server/*|tools_local/*) echo "no no"   ;;
     .github/*|.githooks/*|.skills/*|bin/*)            echo "no no"   ;;
+    # Saved diffs of the LilyGo T5S3 port, kept as a record. Nothing builds from
+    # them (grepped: no extra_script or workflow reads patch/).
+    patch/*)                                          echo "no no"   ;;
   esac
 }
 

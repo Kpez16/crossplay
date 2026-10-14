@@ -105,3 +105,8 @@ site/wikipedia/mock/shards/
 # make the NEXT ship.sh die at its own preflight until somebody cleared it.
 dist/
 .pio/
+
+# pio device monitor session logs (log2file filter in platformio.ini) and
+# build output captured to a file. Machine-local, never part of a commit.
+logs/
+build_log.txt
