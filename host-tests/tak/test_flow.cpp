@@ -27,8 +27,7 @@ static int failures = 0;
 
 namespace {
 
-void setStack(Game& game, const int col, const int row, const char* stones,
-              const PieceKind top = PieceKind::Flat) {
+void setStack(Game& game, const int col, const int row, const char* stones, const PieceKind top = PieceKind::Flat) {
   Cell& cell = game.board[at(col, row)];
   cell = Cell{};
   int n = 0;

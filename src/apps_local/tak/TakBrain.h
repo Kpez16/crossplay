@@ -103,9 +103,8 @@ inline int generatePlacements(const Game& game, Move* out, int capacity) {
 // steps still to come (`steps - depth` of them, each getting at least one
 // stone), filling `counts[depth..steps)` as it goes and testing the
 // resulting Slide with canSlide() once a full composition is assembled.
-inline void tryDropCompositions(const Game& game, int fromIndex, Direction direction, uint8_t pickUp,
-                                 uint8_t steps, uint8_t* counts, uint8_t depth, int remaining, Move* out,
-                                 int& count, int capacity) {
+inline void tryDropCompositions(const Game& game, int fromIndex, Direction direction, uint8_t pickUp, uint8_t steps,
+                                uint8_t* counts, uint8_t depth, int remaining, Move* out, int& count, int capacity) {
   if (count >= capacity) return;
   if (depth == steps) {
     Slide candidate;
@@ -128,8 +127,8 @@ inline void tryDropCompositions(const Game& game, int fromIndex, Direction direc
   const int maxHere = remaining - stepsAfterThis;
   for (int take = 1; take <= maxHere && count < capacity; take++) {
     counts[depth] = static_cast<uint8_t>(take);
-    tryDropCompositions(game, fromIndex, direction, pickUp, steps, counts, depth + 1, remaining - take, out,
-                         count, capacity);
+    tryDropCompositions(game, fromIndex, direction, pickUp, steps, counts, depth + 1, remaining - take, out, count,
+                        capacity);
   }
 }
 
@@ -275,9 +274,8 @@ inline Move bestOnePly(const Game& game, Move* scratch, int scratchCapacity, uin
   int tieCount = 0;
   for (int i = 0; i < count; i++) {
     Game scratchGame = game;
-    const bool applied = scratch[i].isPlacement
-                              ? place(scratchGame, scratch[i].placeIndex, scratch[i].placeKind)
-                              : slide(scratchGame, scratch[i].slideMove);
+    const bool applied = scratch[i].isPlacement ? place(scratchGame, scratch[i].placeIndex, scratch[i].placeKind)
+                                                : slide(scratchGame, scratch[i].slideMove);
     if (!applied) continue;  // defensive only -- generateMoves already filtered to legal moves
     const int score = evaluate(scratchGame, game.toMove);
     if (score > bestScore) {

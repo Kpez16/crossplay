@@ -98,11 +98,16 @@ inline bool directionTo(const int from, const int to, Direction& out) {
   if (from < 0 || from >= kCells || to < 0 || to >= kCells) return false;
   const int dc = colOf(to) - colOf(from);
   const int dr = rowOf(to) - rowOf(from);
-  if (dc == 0 && dr == -1) out = Direction::Up;
-  else if (dc == 0 && dr == 1) out = Direction::Down;
-  else if (dr == 0 && dc == -1) out = Direction::Left;
-  else if (dr == 0 && dc == 1) out = Direction::Right;
-  else return false;
+  if (dc == 0 && dr == -1)
+    out = Direction::Up;
+  else if (dc == 0 && dr == 1)
+    out = Direction::Down;
+  else if (dr == 0 && dc == -1)
+    out = Direction::Left;
+  else if (dr == 0 && dc == 1)
+    out = Direction::Right;
+  else
+    return false;
   return true;
 }
 

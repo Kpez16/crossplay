@@ -59,9 +59,7 @@ enum class Color : uint8_t { White = 0, Black = 1 };
 enum class Level : uint8_t { Easy = 0, Medium = 1, Hard = 2 };
 enum class PieceKind : uint8_t { Flat = 0, Wall = 1, Cap = 2 };
 
-constexpr Color opposite(Color color) {
-  return color == Color::White ? Color::Black : Color::White;
-}
+constexpr Color opposite(Color color) { return color == Color::White ? Color::Black : Color::White; }
 
 // One board square. `colors` bit i is the owner of the piece at level i
 // (0 = White, 1 = Black); only bits [0, height) are meaningful. `topKind` is
@@ -142,14 +140,12 @@ inline int carryLimit(const Game& game) { return game.size; }
 
 // The color whose piece is placed THIS turn -- not necessarily game.toMove,
 // because of the opening swap (see plyNumber's comment above).
-inline Color colorToPlace(const Game& game) {
-  return game.plyNumber < 2 ? opposite(game.toMove) : game.toMove;
-}
+inline Color colorToPlace(const Game& game) { return game.plyNumber < 2 ? opposite(game.toMove) : game.toMove; }
 
 inline bool canPlace(const Game& game, int index, PieceKind kind) {
   if (game.over) return false;
   if (!playable(game, index)) return false;
-  if (game.board[index].height != 0) return false;  // placement targets empty squares only
+  if (game.board[index].height != 0) return false;                  // placement targets empty squares only
   if (game.plyNumber < 2 && kind != PieceKind::Flat) return false;  // swap turns are flats only
   const Color color = colorToPlace(game);
   const Reserve& reserve = game.reserve[static_cast<int>(color)];
@@ -184,10 +180,18 @@ enum class Direction : uint8_t { Up, Down, Left, Right };
 
 inline void step(Direction direction, int& col, int& row) {
   switch (direction) {
-    case Direction::Up: row--; break;
-    case Direction::Down: row++; break;
-    case Direction::Left: col--; break;
-    case Direction::Right: col++; break;
+    case Direction::Up:
+      row--;
+      break;
+    case Direction::Down:
+      row++;
+      break;
+    case Direction::Left:
+      col--;
+      break;
+    case Direction::Right:
+      col++;
+      break;
   }
 }
 
@@ -232,7 +236,7 @@ inline bool canSlide(const Game& game, const Slide& slide) {
     step(slide.direction, col, row);
     if (!onBoard(game, col, row)) return false;
     const Cell& dest = game.board[at(col, row)];
-    if (dest.height == 0) continue;  // empty square: always fine
+    if (dest.height == 0) continue;                    // empty square: always fine
     if (dest.topKind == PieceKind::Cap) return false;  // a capstone can never be landed on, or passed through
     if (dest.topKind == PieceKind::Wall) {
       const bool isFinal = (i == slide.steps - 1);
@@ -357,7 +361,7 @@ inline void checkGameEnd(Game& game) {
   }
 
   const bool reserveEmpty = (game.reserve[0].flats == 0 && game.reserve[0].capstones == 0) ||
-                             (game.reserve[1].flats == 0 && game.reserve[1].capstones == 0);
+                            (game.reserve[1].flats == 0 && game.reserve[1].capstones == 0);
   bool boardFull = true;
   for (int row = 0; row < game.size && boardFull; row++) {
     for (int col = 0; col < game.size; col++) {

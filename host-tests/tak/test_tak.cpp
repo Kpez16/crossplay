@@ -46,8 +46,7 @@ uint32_t rollDie() {
 int idx(const Color color) { return static_cast<int>(color); }
 
 // Bottom to top; 'W' white, 'B' black. The caller says what the top is.
-void setStack(Game& game, const int col, const int row, const char* stones,
-              const PieceKind top = PieceKind::Flat) {
+void setStack(Game& game, const int col, const int row, const char* stones, const PieceKind top = PieceKind::Flat) {
   Cell& cell = game.board[at(col, row)];
   cell = Cell{};
   int n = 0;
@@ -213,7 +212,7 @@ void testReservesLimitWhatCanBePlaced() {
   CHECK(capped.board[at(0, 0)].topKind == PieceKind::Cap);
   CHECK(capped.reserve[idx(Color::White)].flats == kFlatsPerPlayer);
   CHECK(capped.reserve[idx(Color::White)].capstones == 0);
-  capped.toMove = Color::White;  // the turn passed to Black, who still holds theirs
+  capped.toMove = Color::White;                        // the turn passed to Black, who still holds theirs
   CHECK(!canPlace(capped, at(1, 0), PieceKind::Cap));  // only one capstone each
 }
 
@@ -293,16 +292,16 @@ void testIllegalSlidesAreRefusedAndChangeNothing() {
   setStack(game, 0, 4, "WWWWWW");
 
   CHECK(!canSlide(game, mkSlide(2, 2, Direction::Right, 0, {1})));
-  CHECK(!canSlide(game, mkSlide(2, 2, Direction::Right, 4, {4})));      // more than the stack holds
-  CHECK(!canSlide(game, mkSlide(2, 2, Direction::Right, 3, {1, 1})));   // drops do not add up
-  CHECK(!canSlide(game, mkSlide(2, 2, Direction::Right, 3, {3, 0})));   // a step must drop a stone
+  CHECK(!canSlide(game, mkSlide(2, 2, Direction::Right, 4, {4})));     // more than the stack holds
+  CHECK(!canSlide(game, mkSlide(2, 2, Direction::Right, 3, {1, 1})));  // drops do not add up
+  CHECK(!canSlide(game, mkSlide(2, 2, Direction::Right, 3, {3, 0})));  // a step must drop a stone
   CHECK(!canSlide(game, mkSlide(2, 2, Direction::Right, 3, {1, 1, 1, 0})));
   CHECK(!canSlide(game, mkSlide(2, 2, Direction::Right, 3, {1, 1, 1, 1, 1, 1})));  // six steps
-  CHECK(!canSlide(game, mkSlide(0, 4, Direction::Up, 6, {6})));         // over the carry limit
-  CHECK(canSlide(game, mkSlide(0, 4, Direction::Up, 5, {5})));          // right at it
-  CHECK(!canSlide(game, mkSlide(3, 3, Direction::Left, 1, {1})));       // not yours to move
-  CHECK(!canSlide(game, mkSlide(1, 1, Direction::Left, 1, {1})));       // nothing there
-  CHECK(!canSlide(game, mkSlide(4, 2, Direction::Right, 1, {1})));      // off the board
+  CHECK(!canSlide(game, mkSlide(0, 4, Direction::Up, 6, {6})));                    // over the carry limit
+  CHECK(canSlide(game, mkSlide(0, 4, Direction::Up, 5, {5})));                     // right at it
+  CHECK(!canSlide(game, mkSlide(3, 3, Direction::Left, 1, {1})));                  // not yours to move
+  CHECK(!canSlide(game, mkSlide(1, 1, Direction::Left, 1, {1})));                  // nothing there
+  CHECK(!canSlide(game, mkSlide(4, 2, Direction::Right, 1, {1})));                 // off the board
   CHECK(!canSlide(game, mkSlide(0, 0, Direction::Left, 1, {1})));
   CHECK(!canSlide(game, mkSlide(0, 0, Direction::Up, 1, {1})));
   CHECK(!canSlide(game, mkSlide(-1, 0, Direction::Up, 1, {1})));
@@ -527,7 +526,7 @@ void testOnlyFlatsCountForTheFlatWin() {
   Game capped = midgame();
   fillCheckerboard(capped);
   setStack(capped, 0, 0, "W", PieceKind::Cap);  // white: 12 flats and a capstone
-  checkGameEnd(capped);                           // black: 12 flats
+  checkGameEnd(capped);                         // black: 12 flats
   CHECK(capped.over && capped.draw && !capped.winnerByRoad);
 }
 
@@ -594,8 +593,8 @@ void testRandomGamesHoldEveryInvariant() {
     }
   }
   CHECK(finished == 400);
-  std::printf("random games: %d road, %d flat, %d drawn; widest position %d of %d moves\n", roadWins, flatWins,
-              draws, widest, kMaxMoves);
+  std::printf("random games: %d road, %d flat, %d drawn; widest position %d of %d moves\n", roadWins, flatWins, draws,
+              widest, kMaxMoves);
 }
 
 // ---------------------------------------------------------------- brain ----
@@ -727,12 +726,10 @@ void testTheOpponentBeatsARandomMoverConvincingly() {
   const Tally asBlack = playGames(60, Color::Black, false);
   const int wins = asWhite.brainWins + asBlack.brainWins;
   const int losses = asWhite.otherWins + asBlack.otherWins;
-  std::printf("opponent vs random: %d won, %d lost, %d drawn of 120\n", wins, losses,
-              asWhite.draws + asBlack.draws);
+  std::printf("opponent vs random: %d won, %d lost, %d drawn of 120\n", wins, losses, asWhite.draws + asBlack.draws);
   CHECK(wins >= 100);
   CHECK(wins > losses * 5);
 }
-
 
 // --- the 3x3 board and the opponent's levels --------------------------------
 
@@ -890,15 +887,16 @@ void testHarderLevelsWinMore() {
   for (int g = 0; g < 16; ++g) {
     // Alternate colours so neither the first move nor the swap decides it.
     const bool hardWhite = (g % 2) == 0;
-    const int a = hardWhite ? playLevels(Level::Hard, Level::Easy, kSize) : -playLevels(Level::Easy, Level::Hard, kSize);
+    const int a =
+        hardWhite ? playLevels(Level::Hard, Level::Easy, kSize) : -playLevels(Level::Easy, Level::Hard, kSize);
     const int b =
         hardWhite ? playLevels(Level::Medium, Level::Easy, kSize) : -playLevels(Level::Easy, Level::Medium, kSize);
     if (a > 0) ++hardOverEasy;
     if (b > 0) ++mediumOverEasy;
     ++easyGames;
   }
-  std::printf("levels: hard beat easy %d of %d, medium beat easy %d of %d\n", hardOverEasy, easyGames,
-              mediumOverEasy, easyGames);
+  std::printf("levels: hard beat easy %d of %d, medium beat easy %d of %d\n", hardOverEasy, easyGames, mediumOverEasy,
+              easyGames);
   CHECK(hardOverEasy >= easyGames * 3 / 4);
   CHECK(mediumOverEasy >= easyGames * 5 / 8);
 }

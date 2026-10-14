@@ -19,7 +19,6 @@
 #include "../../src/apps_local/ShelfScreen.h"
 #include "../../src/apps_local/battleship/BattleshipScreens.h"
 #include "../../src/apps_local/checkers/CheckersScreens.h"
-#include "../../src/apps_local/tak/TakScreens.h"
 #include "../../src/apps_local/chess/ChessScreens.h"
 #include "../../src/apps_local/connectfour/ConnectFourScreens.h"
 #include "../../src/apps_local/connections/ConnectionsScreens.h"
@@ -46,6 +45,7 @@
 #include "../../src/apps_local/solitaire/SolitaireScreens.h"
 #include "../../src/apps_local/study/StudyScreens.h"
 #include "../../src/apps_local/sudoku/SudokuScreens.h"
+#include "../../src/apps_local/tak/TakScreens.h"
 #include "../../src/apps_local/toybattle/ToyBattleMenus.h"
 #include "../../src/apps_local/toybattle/ToyBattleScreens.h"
 #include "../../src/apps_local/trivia/TriviaScreens.h"
@@ -7468,7 +7468,8 @@ void testTheTakHowToWordsNeverTouchAnythingElse() {
       Rendered out;
       buildTak<takui::HowToModel, takui::buildHowTo>(out, model, ctx);
 
-      const FakeTarget::TextRun* tap = out.target.find(page + 1 < takui::howToPages() ? "TAP TO CONTINUE" : "TAP TO FINISH");
+      const FakeTarget::TextRun* tap =
+          out.target.find(page + 1 < takui::howToPages() ? "TAP TO CONTINUE" : "TAP TO FINISH");
       CHECK(tap != nullptr);
       // The caption is the one wrapped run on the page.
       const FakeTarget::TextRun* caption = nullptr;
