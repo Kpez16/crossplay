@@ -1,4 +1,4 @@
 [submodule "freeink-sdk"]
 	path = freeink-sdk
-	url = https://github.com/ma-r-s/freeink-sdk.git
-	branch = fix/sd-free-space
+	url = https://github.com/kpez16/freeink-sdk.git
+	branch = lilygot5-on-upstream
