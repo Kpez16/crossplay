@@ -1,0 +1,19 @@
+# Failures this fork tolerates from scripts_local/check-fork.sh.
+#
+# One rule per line: STAGE, a TAB, then a regex (Python syntax).
+#   * A stage that prints FAIL detail lines is tolerated only if EVERY detail
+#     line matches one of its rules.
+#   * A stage with no detail lines is judged on its own "FAILED" line.
+# A stage with no rule here, or a line no rule covers, fails the run.
+#
+# Each rule says why it is here. Delete the rule when the cause is gone.
+
+# g++-15 aborts in the devreport host test. Fails on upstream trunk as well.
+devreport	.
+gcc	in host-tests/devreport
+
+# Upstream put em-dashes in .agents/rules/*.md. Fails on upstream trunk as well.
+nodash	FAIL \.agents/rules/[^:]+:[0-9]+: em-dash
+
+# docs/README.md calls touch-and-ui.md verbatim but upstream edited it. Fails on upstream trunk too.
+docsclaims	touch-and-ui\.md: says verbatim
