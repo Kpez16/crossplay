@@ -38,8 +38,7 @@
 #include "study/StudyActivity.h"
 #include "sudoku/SudokuActivity.h"
 #include "tak/TakActivity.h"
-#include "emu/EmuSpikeActivity.h"
-#include "emu/GbSpikeActivity.h"
+#include "emu/EmuRomListActivity.h"
 #include "toybattle/ToyBattleActivity.h"
 #include "trivia/TriviaActivity.h"
 #include "ui/ToyboxIcons.h"
@@ -57,6 +56,8 @@ namespace {
 // rather than literalness: a crown, a hull, a grid and a card suit share no
 // shape, so a row is scannable before the label is read.
 constexpr shelf::Item kGames[] = {
+    {"GAME BOY", &icon_go_32, &EmuRomListActivity::createGb},
+    {"GAME BOY COLOR", &icon_go_32, &EmuRomListActivity::createGbc},
     {"CHESS", &icon_chess_32, &ChessActivity::create},
     {"BATTLESHIP", &icon_battleship_32, &BattleshipActivity::create},
     {"CONNECTIONS", &icon_connections_32, &ConnectionsActivity::create},
@@ -96,9 +97,6 @@ constexpr shelf::Item kApps[] = {
     // Card #516. The icon is the Lucide list mark borrowed from Murdle while
     // the screens are being chosen; a Notes mark comes with the real app.
     {"NOTES", &icon_murdle_face_clues_32, &NotesActivity::create},
-    // TEMPORARY (branch gb-nes-emulator): panel handoff spike. Remove with emu/EmuSpikeActivity.*.
-    {"EMU TEST", &icon_go_32, &EmuSpikeActivity::create},
-    {"GB TEST", &icon_go_32, &GbSpikeActivity::create},
 };
 
 // The two rows Home grows, in reading order. Titles are Title Case because

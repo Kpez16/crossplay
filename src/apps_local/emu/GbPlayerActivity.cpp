@@ -1,4 +1,4 @@
-#include "GbSpikeActivity.h"
+#include "GbPlayerActivity.h"
 
 #include <Arduino.h>
 #include <HalStorage.h>
@@ -16,7 +16,6 @@
 #include <string>
 
 #include "../../components/UITheme.h"
-#include "../Shelf.h"
 #include "fontIds.h"
 
 #if FREEINK_DEVICE_LILYGO
@@ -75,7 +74,7 @@ void logHeap(const char* where) {
 // `latest` between scans. A frame the scanner never adopted is withdrawn and
 // overwritten (dropped), so the game keeps its own speed however slow the panel is,
 // and a slot is never written while it is being scanned.
-struct GbSpikeActivity::PlayState {
+struct GbPlayerActivity::PlayState {
   uint8_t* rom = nullptr;
   uint8_t* history = nullptr;
   uint8_t* slot[2] = {nullptr, nullptr};
@@ -102,16 +101,12 @@ struct GbSpikeActivity::PlayState {
   char error[96] = "";
 };
 #else
-struct GbSpikeActivity::PlayState {};
+struct GbPlayerActivity::PlayState {};
 #endif
 
-std::unique_ptr<Activity> GbSpikeActivity::create(GfxRenderer& renderer, MappedInputManager& mappedInput) {
-  return makeUniqueNoThrow<GbSpikeActivity>(renderer, mappedInput);
-}
-
-void GbSpikeActivity::onEnter() {
+void GbPlayerActivity::onEnter() {
   Activity::onEnter();
-  stage = Stage::Intro;
+  stage = Stage::Launch;
   launchPageShown = false;
   stopRequested = false;
   taskFinished = false;
@@ -119,7 +114,7 @@ void GbSpikeActivity::onEnter() {
   requestUpdate();
 }
 
-void GbSpikeActivity::onExit() {
+void GbPlayerActivity::onExit() {
   // Never leave a task running over a destroyed activity.
   if (ps && stage == Stage::Playing) {
     stopRequested = true;
@@ -131,7 +126,7 @@ void GbSpikeActivity::onExit() {
 
 #if FREEINK_DEVICE_LILYGO
 
-void GbSpikeActivity::releaseAll() {
+void GbPlayerActivity::releaseAll() {
   if (!ps) return;
   if (ps->coreOpen) inkGameClose();
   free(ps->history);
@@ -149,26 +144,9 @@ void GbSpikeActivity::releaseAll() {
 
 // Main thread. Everything that needs internal RAM is asked for here, first, before
 // the tasks' stacks and the core's own tables fragment what is left.
-bool GbSpikeActivity::prepare() {
+bool GbPlayerActivity::prepare() {
   using namespace GameViewport;
   report[0] = '\0';  // ps and the two tasks already exist; see loop()
-
-  std::string romPath;
-  for (const auto& n : Storage.listFiles("/roms", 200)) {
-    std::string s(n.c_str());
-    const auto dot = s.find_last_of('.');
-    if (dot == std::string::npos) continue;
-    std::string ext = s.substr(dot);
-    for (auto& c : ext) c = static_cast<char>(tolower(c));
-    if (ext == ".gb" || ext == ".gbc") {
-      romPath = "/roms/" + s;
-      break;
-    }
-  }
-  if (romPath.empty()) {
-    snprintf(report, sizeof(report), "No .gb or .gbc file found in /roms on the SD card.");
-    return false;
-  }
 
   logHeap("start (stacks already taken)");
   // The video history is the hot buffer: the scan reads and writes all of it every
@@ -202,7 +180,7 @@ bool GbSpikeActivity::prepare() {
   }
   const size_t bytes = f.size();
   if (bytes < 32768 || bytes > kMaxRomBytes) {
-    snprintf(report, sizeof(report), "ROM size %u is outside 32 KB..4 MB for this spike.", unsigned(bytes));
+    snprintf(report, sizeof(report), "ROM size %u is outside 32 KB..4 MB.", unsigned(bytes));
     f.close();
     return false;
   }
@@ -232,22 +210,22 @@ bool GbSpikeActivity::prepare() {
   return true;
 }
 
-void GbSpikeActivity::scanEntry(void* self) {
-  auto* a = static_cast<GbSpikeActivity*>(self);
+void GbPlayerActivity::scanEntry(void* self) {
+  auto* a = static_cast<GbPlayerActivity*>(self);
   a->scanTask();
   a->taskFinished = true;
   vTaskDelete(nullptr);
 }
 
-void GbSpikeActivity::emuEntry(void* self) {
-  auto* a = static_cast<GbSpikeActivity*>(self);
+void GbPlayerActivity::emuEntry(void* self) {
+  auto* a = static_cast<GbPlayerActivity*>(self);
   a->emuTask();
   vTaskDelete(nullptr);
 }
 
 // Core 0. Real-time producer: one core frame every 16.743 ms, packed into the slot
 // the scanner is not showing.
-void GbSpikeActivity::emuTask() {
+void GbPlayerActivity::emuTask() {
   PlayState& s = *ps;
   xSemaphoreTake(s.emuGo, portMAX_DELAY);  // the scan task has cleaned the screen
   int64_t next = esp_timer_get_time();
@@ -292,7 +270,7 @@ void GbSpikeActivity::emuTask() {
 }
 
 // Core 1. Owns the panel from handoff to handback.
-void GbSpikeActivity::scanTask() {
+void GbPlayerActivity::scanTask() {
   using namespace GameViewport;
   PlayState& s = *ps;
   FASTEPD* panel = nullptr;
@@ -401,8 +379,9 @@ void GbSpikeActivity::scanTask() {
     if (s.emuFailed) {
       snprintf(report, sizeof(report), "%s", s.error);
     } else if (scanRc == BBEP_SUCCESS && report[0] == '\0') {
-      snprintf(report, sizeof(report), "Played %.1f s: %u emulator frames (%.1f fps).", total, unsigned(s.emuFrames.load()),
-               s.emuFrames.load() / total);
+      // A clean run leaves `report` empty: loop() returns to the ROM list on that.
+      LOG_INF("GBSPIKE", "Played %.1f s: %u emulator frames (%.1f fps).", total, unsigned(s.emuFrames.load()),
+              s.emuFrames.load() / total);
     }
   }
 
@@ -427,24 +406,24 @@ done:
   }
   LOG_INF("GBSPIKE", "stack left: scan task %u bytes, emulator task %u bytes",
           unsigned(uxTaskGetStackHighWaterMark(nullptr) * sizeof(StackType_t)), unsigned(s.emuStackLeft.load()));
-  LOG_INF("GBSPIKE", "%s", report);
+  if (report[0]) LOG_ERR("GBSPIKE", "%s", report);
 }
 
 #else  // not a T5 build
 
-void GbSpikeActivity::releaseAll() {}
-bool GbSpikeActivity::prepare() {
+void GbPlayerActivity::releaseAll() {}
+bool GbPlayerActivity::prepare() {
   snprintf(report, sizeof(report), "T5 only");
   return false;
 }
-void GbSpikeActivity::scanEntry(void*) {}
-void GbSpikeActivity::emuEntry(void*) {}
-void GbSpikeActivity::scanTask() {}
-void GbSpikeActivity::emuTask() {}
+void GbPlayerActivity::scanEntry(void*) {}
+void GbPlayerActivity::emuEntry(void*) {}
+void GbPlayerActivity::scanTask() {}
+void GbPlayerActivity::emuTask() {}
 
 #endif
 
-void GbSpikeActivity::loop() {
+void GbPlayerActivity::loop() {
   if (stage == Stage::Playing) {
     int tx = 0, ty = 0;
     if (mappedInput.wasReleased(MappedInputManager::Button::Back) || mappedInput.wasScreenTapped(tx, ty)) {
@@ -452,9 +431,13 @@ void GbSpikeActivity::loop() {
     }
     if (taskFinished) {
       releaseAll();
-      stage = Stage::Done;
       renderer.promoteNextRefresh(HalDisplay::FULL_REFRESH);
-      requestUpdate();
+      if (report[0]) {  // a failure: say why before leaving
+        stage = Stage::Done;
+        requestUpdate();
+      } else {
+        finish();  // back to the ROM list
+      }
     }
     return;
   }
@@ -479,8 +462,8 @@ void GbSpikeActivity::loop() {
     logHeap("before stacks");
     TaskHandle_t scanHandle = nullptr;
     const bool tasksOk = ps && ps->mtx && ps->go && ps->emuGo &&
-                         xTaskCreatePinnedToCore(&GbSpikeActivity::scanEntry, "gbscan", 8192, this, 3, &scanHandle, 1) == pdPASS &&
-                         xTaskCreatePinnedToCore(&GbSpikeActivity::emuEntry, "gbemu", kEmuStack, this, 2, &ps->emuHandle, 0) == pdPASS;
+                         xTaskCreatePinnedToCore(&GbPlayerActivity::scanEntry, "gbscan", 8192, this, 3, &scanHandle, 1) == pdPASS &&
+                         xTaskCreatePinnedToCore(&GbPlayerActivity::emuEntry, "gbemu", kEmuStack, this, 2, &ps->emuHandle, 0) == pdPASS;
     if (!tasksOk) {
       snprintf(report, sizeof(report), "Could not start the game tasks (internal RAM).");
       if (scanHandle) {  // scan task exists and is waiting: let it unwind
@@ -508,30 +491,24 @@ void GbSpikeActivity::loop() {
     stage = Stage::Playing;
     return;
   }
-  if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
-    shelf::leave(renderer, mappedInput);
-    return;
-  }
+  // Done: only reached with a failure page showing.
   int tx = 0, ty = 0;
-  if (mappedInput.wasScreenTapped(tx, ty)) {
-    stage = Stage::Launch;
-    launchPageShown = false;
-    report[0] = '\0';
-    requestUpdate();
+  if (mappedInput.wasReleased(MappedInputManager::Button::Back) || mappedInput.wasScreenTapped(tx, ty)) {
+    finish();
   }
 }
 
-void GbSpikeActivity::render(RenderLock&&) {
+void GbPlayerActivity::render(RenderLock&&) {
   const auto& metrics = UITheme::getInstance().getMetrics();
   const int sw = renderer.getScreenWidth();
   const int sh = renderer.getScreenHeight();
 
   renderer.clearScreen();
-  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, sw, metrics.headerHeight}, "Game Boy test");
+  GUI.drawHeader(renderer, Rect{0, metrics.topPadding, sw, metrics.headerHeight}, "Game Boy");
 
   const int bodyY = metrics.topPadding + metrics.headerHeight + metrics.verticalSpacing;
   const int bodyH = sh - bodyY - metrics.buttonHintsHeight - metrics.verticalSpacing;
-  const char* text = "Tap to play the first .gb or .gbc file in /roms. Tap again to stop.";
+  const char* text = "";
   if (stage == Stage::Launch) text = "Loading. The screen will clear and the game will start.";
   if (stage == Stage::Done) text = report[0] ? report : "Done.";
   UITheme::drawCenteredWrappedText(renderer, Rect{0, bodyY, sw, bodyH}, UI_12_FONT_ID, text, 6);

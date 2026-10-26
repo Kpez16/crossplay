@@ -1,27 +1,27 @@
 #pragma once
 
-// Spike 2 for the GB/GBC/NES emulator work (branch gb-nes-emulator): play the
-// first .gb/.gbc under /roms on the SD card through the FastEPD video scan.
+// Game Boy / Game Boy Color player (branch gb-nes-emulator): plays one ROM from
+// the SD card through the FastEPD video scan. Launched by EmuRomListActivity.
 //
 // Two tasks, like InkDeck: an emulator task on core 0 produces packed frames at
 // the game's own rate; a scan task on core 1 owns the panel and drives it as fast
 // as it will go. They meet in two packed-frame buffers (see PlayState).
 //
-// No ROM list, no controls, no saves yet: any tap or Back ends the run and
-// returns to the shelf. Temporary, like EmuSpikeActivity.
+// No controls or saves yet: any tap or Back ends the run, and finish() returns
+// to the ROM list. A failure shows its reason on a page first.
 
 #include <atomic>
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "../../activities/Activity.h"
 
-class GbSpikeActivity final : public Activity {
+class GbPlayerActivity final : public Activity {
  public:
-  GbSpikeActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-      : Activity("GbSpike", renderer, mappedInput) {}
-  ~GbSpikeActivity() override = default;
-
-  static std::unique_ptr<Activity> create(GfxRenderer& renderer, MappedInputManager& mappedInput);
+  GbPlayerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string romPath)
+      : Activity("GbPlayer", renderer, mappedInput), romPath(std::move(romPath)) {}
+  ~GbPlayerActivity() override = default;
 
   void onEnter() override;
   void onExit() override;
@@ -35,8 +35,9 @@ class GbSpikeActivity final : public Activity {
   bool preventAutoSleep() override { return stage == Stage::Launch || stage == Stage::Playing; }
 
  private:
-  enum class Stage : uint8_t { Intro, Launch, Playing, Done };
-  Stage stage = Stage::Intro;
+  enum class Stage : uint8_t { Launch, Playing, Done };
+  const std::string romPath;
+  Stage stage = Stage::Launch;
   bool launchPageShown = false;
   std::atomic<bool> stopRequested{false};
   std::atomic<bool> taskFinished{false};
