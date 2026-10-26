@@ -235,6 +235,35 @@ bool HalGPIO::isTouchHeldAt(float& nx, float& ny) const {
   return inputMgr.isTouchHeldAt(nx, ny);
 }
 
+int HalGPIO::getTouchContacts(float* nx, float* ny, int maxContacts) const {
+  if (!nx || !ny || maxContacts <= 0) return 0;
+#if CROSSPOINT_EMULATED == 0
+  const auto& t = BoardConfig::ACTIVE.touch;
+  const float w = (t.rawMaxX > t.rawMinX) ? static_cast<float>(t.rawMaxX - t.rawMinX) : 1.0f;
+  const float h = (t.rawMaxY > t.rawMinY) ? static_cast<float>(t.rawMaxY - t.rawMinY) : 1.0f;
+  const auto clamp01 = [](float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); };
+  const auto snapshot = inputMgr.getTouchSnapshot();
+  int n = 0;
+  for (int i = 0; i < snapshot.count && n < maxContacts; ++i) {
+    if (!snapshot.points[i].point.valid) continue;
+    nx[n] = clamp01(snapshot.points[i].point.x / w);
+    ny[n] = clamp01(snapshot.points[i].point.y / h);
+    ++n;
+  }
+  if (n == 0 && inputMgr.isTouchPressed()) {  // single-contact controllers
+    const auto p = inputMgr.getTouchPoint();
+    if (p.valid) {
+      nx[0] = clamp01(p.x / w);
+      ny[0] = clamp01(p.y / h);
+      n = 1;
+    }
+  }
+  return n;
+#else
+  return 0;
+#endif
+}
+
 bool HalGPIO::wasTouchLongPress(float& nx, float& ny) const {
   DEV_INPUT(devinput::wasTouchLongPress(nx, ny))
   return inputMgr.wasTouchLongPress(nx, ny);

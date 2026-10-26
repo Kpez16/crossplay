@@ -1,6 +1,7 @@
 #include "GbPlayerActivity.h"
 
 #include <Arduino.h>
+#include <HalGPIO.h>
 #include <HalStorage.h>
 #include <Logging.h>
 #include <Memory.h>
@@ -22,6 +23,7 @@
 #include <FastEPD.h>
 
 #include "GameCore.h"
+#include "InkadeControls.h"
 #include "GameFrameTiming.h"
 #include "GameViewport.h"
 
@@ -231,7 +233,7 @@ void GbPlayerActivity::emuTask() {
   int64_t next = esp_timer_get_time();
   while (!stopRequested) {
     const int64_t t0 = esp_timer_get_time();
-    if (!inkGameFrame(0, s.work)) {
+    if (!inkGameFrame(padMask.load(), s.work)) {
       snprintf(s.error, sizeof(s.error), "Core stopped: %s", inkGameError());
       s.emuFailed = true;
       break;
@@ -321,12 +323,15 @@ void GbPlayerActivity::scanTask() {
     // buffer and driven with the slow waveform inside the game rectangle.
     panel->fillScreen(BBEP_WHITE);
     panel->fullUpdate(CLEAR_SLOW, true);
+    // The pad, bezel and labels, plotted into the (now white) buffer, then the
+    // first game frame blitted over the window; one slow full update shows both.
+    panel->fillScreen(BBEP_WHITE);
+    InkadeControls::draw([&](int x, int y) { panel->drawPixel(x, y, BBEP_BLACK); });
     uint8_t* buf = panel->currentBuffer();
-    memset(buf, 0xff, 960 * 540 / 8);
     for (int row = 0; row < SOURCE_W; ++row)
       for (int rep = 0; rep < SCALE; ++rep)
         memcpy(buf + (rect.y + row * SCALE + rep) * (960 / 8) + rect.x / 8, s.slot[0] + row * ROW_BYTES, ROW_BYTES);
-    panel->fullUpdate(CLEAR_SLOW, true, const_cast<BB_RECT*>(&rect));
+    panel->fullUpdate(CLEAR_SLOW, true);
 
     // Now the real-time producer (its task already exists, waiting).
     xSemaphoreGive(s.emuGo);
@@ -350,6 +355,21 @@ void GbPlayerActivity::scanTask() {
       xSemaphoreGive(s.mtx);
       if (!fresh) ++repeats;
 
+      if (cleanRequested.exchange(false)) {
+        // InkDeck's manual clean: blit the picture on screen into the panel's own
+        // buffer, drive the slow clearing waveform over the game rectangle only
+        // (the pad is untouched), then restart the scan from a reset history.
+        LOG_INF("GBSPIKE", "clean redraw requested");
+        xSemaphoreTake(s.mtx, portMAX_DELAY);
+        const int shown = s.cur;
+        xSemaphoreGive(s.mtx);
+        uint8_t* cb = panel->currentBuffer();
+        for (int row = 0; row < SOURCE_W; ++row)
+          for (int rep = 0; rep < SCALE; ++rep)
+            memcpy(cb + (rect.y + row * SCALE + rep) * (960 / 8) + rect.x / 8, s.slot[shown] + row * ROW_BYTES, ROW_BYTES);
+        panel->fullUpdate(CLEAR_SLOW, true, const_cast<BB_RECT*>(&rect));
+        reset = true;
+      }
       const int64_t t0 = esp_timer_get_time();
       scanRc = panel->videoScan(rect, s.slot[showing], s.history, reset, SCALE, kRotation == 3);
       reset = false;
@@ -423,12 +443,37 @@ void GbPlayerActivity::emuTask() {}
 
 #endif
 
+#if FREEINK_DEVICE_LILYGO
+// Main thread, every pass: up to four fingers, the held pad buttons for the
+// emulator, a tap on the picture for a clean redraw, and the top bar to leave.
+void GbPlayerActivity::readTouchPad() {
+  float nx[4], ny[4];
+  const int n = gpio.getTouchContacts(nx, ny, 4);
+  uint8_t mask = 0;
+  bool inBar = false, inWindow = false;
+  for (int i = 0; i < n; ++i) {
+    uint16_t x = 0, y = 0;
+    if (!LilygoLayout::mapTouch(static_cast<uint16_t>(nx[i] * LilygoLayout::PANEL_W),
+                                static_cast<uint16_t>(ny[i] * LilygoLayout::PANEL_H), kRotation, x, y))
+      continue;
+    mask |= InkadeControls::buttonsAt(x, y);
+    inBar |= InkadeControls::inTopBar(x, y);
+    inWindow |= InkadeControls::inGameWindow(x, y);
+  }
+  padMask = mask;
+  if (inBar && !prevInBar) stopRequested = true;
+  if (inWindow && !prevInWindow) cleanRequested = true;
+  prevInBar = inBar;
+  prevInWindow = inWindow;
+}
+#else
+void GbPlayerActivity::readTouchPad() {}
+#endif
+
 void GbPlayerActivity::loop() {
   if (stage == Stage::Playing) {
-    int tx = 0, ty = 0;
-    if (mappedInput.wasReleased(MappedInputManager::Button::Back) || mappedInput.wasScreenTapped(tx, ty)) {
-      stopRequested = true;
-    }
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back)) stopRequested = true;
+    readTouchPad();
     if (taskFinished) {
       releaseAll();
       renderer.promoteNextRefresh(HalDisplay::FULL_REFRESH);

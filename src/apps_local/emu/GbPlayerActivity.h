@@ -41,6 +41,11 @@ class GbPlayerActivity final : public Activity {
   bool launchPageShown = false;
   std::atomic<bool> stopRequested{false};
   std::atomic<bool> taskFinished{false};
+  std::atomic<uint8_t> padMask{0};         // game buttons held on the touch pad
+  std::atomic<bool> cleanRequested{false};  // tap on the picture: redraw it clean
+  bool prevInBar = true;                    // true until the finger that opened the game lifts
+  bool prevInWindow = true;
+  void readTouchPad();
   char report[200] = "";  // written before taskFinished is set, read after
 
   struct PlayState;
