@@ -1,0 +1,9 @@
+{
+  "name": "InkadePort",
+  "version": "0.1.0",
+  "description": "Game Boy / NES emulator cores and glue ported from InkDeck (AGPL-3.0-or-later). LilyGo T5 only.",
+  "license": "AGPL-3.0-or-later",
+  "build": {
+    "flags": ["-O3", "-Wno-unused-function", "-Wno-unused-variable"]
+  }
+}

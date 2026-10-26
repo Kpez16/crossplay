@@ -387,6 +387,10 @@ class FASTEPD
     // Select between the queued transport and video4's serial row transport.
     // Call only between completed scans. A transport fault requires reboot;
     // never retry a partially driven frame using already-advanced history.
+    // CrossPlay: second part of the pixel history. Source rows [0, firstGroups) use the
+    // `history` pointer given to videoScan, the rest start at `tail`. Pass nullptr to
+    // go back to one buffer. Call only between completed scans.
+    void setVideoHistoryTail(uint8_t* tail, int firstGroups) { _videoHistory2 = tail; _videoHistorySplit = firstGroups; }
     void setVideoQueued(bool queued) { _videoQueued = queued; }
     // A/B experiment: append one neutral row like MSG's scan epilogue.
     // Change only after draining/neutralizing the previous profile.
@@ -447,6 +451,8 @@ class FASTEPD
   protected:
     FASTEPDSTATE _state;
 #if defined(BOARD_LILYGO_T5S3_PRO)
+    uint8_t* _videoHistory2 = nullptr;
+    int _videoHistorySplit = 0;
     bool _videoQueued = true;
     bool _videoScanTail = false;
     uint8_t _videoPulses = 4;

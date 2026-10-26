@@ -8,16 +8,24 @@ template<typename Send, typename Wait>
 inline bool scanTriplesChecked(const PackedLut& lut, const uint8_t* source, uint8_t* history,
                                uint8_t* buffers, int stride, int panelHeight,
                                int x, int y, int width, int height, bool reset,
-                               Send send, Wait wait, bool neutralTail = false, int rowRepeat = 3) {
+                               Send send, Wait wait, bool neutralTail = false, int rowRepeat = 3,
+                               uint8_t* history2 = nullptr, int historySplit = 0) {
     const int rowBytes = width / 8, stateBytes = width / 2;
     if(rowRepeat<1 || height%rowRepeat || rowBytes%rowRepeat) return false;
+    // CrossPlay: the per-row pixel history may live in two buffers (rows < historySplit
+    // in `history`, the rest in `history2`), because internal RAM has no single block
+    // big enough on the T5. Layout within each part is unchanged.
+    const auto historyAt = [&](int group) -> uint8_t* {
+        return (history2 && group >= historySplit) ? history2 + (group - historySplit) * stateBytes
+                                                   : history + group * stateBytes;
+    };
     const int chunkBytes = rowBytes / rowRepeat;
     uint8_t* rows[2] = {buffers, buffers + stride};
     uint8_t* neutral = buffers + 2 * stride;
     unsigned submitted = 0;
     int physicalRow = 0;
     memset(buffers, 0, stride * 3);
-    lut.buildSpan(rows[0] + x / 4, source, history, rowBytes, reset);
+    lut.buildSpan(rows[0] + x / 4, source, historyAt(0), rowBytes, reset);
     const auto submit = [&](uint8_t* row) {
         if (!wait(submitted) || !send(row, physicalRow)) return false;
         ++submitted;
@@ -34,7 +42,7 @@ inline bool scanTriplesChecked(const PackedLut& lut, const uint8_t* source, uint
                 const int offset = repeat * chunkBytes;
                 lut.buildSpan(next + x / 4 + offset * 2,
                               source + (group + 1) * rowBytes + offset,
-                              history + (group + 1) * stateBytes + offset * 4,
+                              historyAt(group + 1) + offset * 4,
                               chunkBytes, reset);
             }
         }
@@ -54,10 +62,15 @@ template<typename Send, typename Wait>
 inline bool queueTriples(const PackedLut& lut, const uint8_t* source, uint8_t* history,
                          uint8_t* buffers, int stride, int panelHeight,
                          int x, int y, int width, int height, bool reset,
-                         Send send, Wait wait, bool neutralTail = false, int rowRepeat = 3) {
+                         Send send, Wait wait, bool neutralTail = false, int rowRepeat = 3,
+                         uint8_t* history2 = nullptr, int historySplit = 0) {
     constexpr unsigned depth = 3;
     const int rowBytes = width / 8, stateBytes = width / 2;
     if(rowRepeat<1 || height%rowRepeat) return false;
+    const auto historyAt = [&](int group) -> uint8_t* {
+        return (history2 && group >= historySplit) ? history2 + (group - historySplit) * stateBytes
+                                                   : history + group * stateBytes;
+    };
     uint8_t* rows[2] = {buffers, buffers + stride};
     uint8_t* neutral = buffers + 2 * stride;
     unsigned submitted = 0, lastUse[2] = {};
@@ -77,7 +90,7 @@ inline bool queueTriples(const PackedLut& lut, const uint8_t* source, uint8_t* h
         // be rewritten, even when the driver queue runs ahead of the panel.
         if (lastUse[slot] && !wait(lastUse[slot])) return false;
         lut.buildSpan(rows[slot] + x / 4, source + group * rowBytes,
-                      history + group * stateBytes, rowBytes, reset);
+                      historyAt(group), rowBytes, reset);
         for (int repeat = 0; repeat < rowRepeat; ++repeat)
             if (!submit(rows[slot])) return false;
         lastUse[slot] = submitted;

@@ -39,6 +39,7 @@
 #include "sudoku/SudokuActivity.h"
 #include "tak/TakActivity.h"
 #include "emu/EmuSpikeActivity.h"
+#include "emu/GbSpikeActivity.h"
 #include "toybattle/ToyBattleActivity.h"
 #include "trivia/TriviaActivity.h"
 #include "ui/ToyboxIcons.h"
@@ -97,6 +98,7 @@ constexpr shelf::Item kApps[] = {
     {"NOTES", &icon_murdle_face_clues_32, &NotesActivity::create},
     // TEMPORARY (branch gb-nes-emulator): panel handoff spike. Remove with emu/EmuSpikeActivity.*.
     {"EMU TEST", &icon_go_32, &EmuSpikeActivity::create},
+    {"GB TEST", &icon_go_32, &GbSpikeActivity::create},
 };
 
 // The two rows Home grows, in reading order. Titles are Title Case because

@@ -936,7 +936,8 @@ int FASTEPD::videoScan(const BB_RECT& rect, const uint8_t* source, uint8_t* hist
             _state.native_height,rect.x,rect.y,rect.w,rect.h,resetHistory,reverseNesRows,sendQueued,waitQueued,
             _videoScanTail,true,nesBanks,nesBankRows,InkDeckVideoPulse::NoNesScanProfile{},ResidentNesHistory{});
         else success = InkDeckVideoPulse::queueTriples(pulseLut, source, history, rows, 256,
-            _state.native_height, rect.x, rect.y, rect.w, rect.h, resetHistory,sendQueued, waitQueued, _videoScanTail, rowRepeat);
+            _state.native_height, rect.x, rect.y, rect.w, rect.h, resetHistory,sendQueued, waitQueued, _videoScanTail, rowRepeat,
+            _videoHistory2, _videoHistorySplit);
         // Completed is release-published only after the final callback stops
         // accessing these pins. Ordinary FastEPD calls can now use their ISR.
         bbepVqStore(&video_queue_active, 0);
@@ -952,7 +953,8 @@ int FASTEPD::videoScan(const BB_RECT& rect, const uint8_t* source, uint8_t* hist
             _state.native_height,rect.x,rect.y,rect.w,rect.h,resetHistory,reverseNesRows,sendSerial,waitSerial,
             _videoScanTail,false,nesBanks,nesBankRows,InkDeckVideoPulse::NoNesScanProfile{},ResidentNesHistory{});
         else success = InkDeckVideoPulse::scanTriplesChecked(pulseLut, source, history, rows, 256,
-            _state.native_height, rect.x, rect.y, rect.w, rect.h, resetHistory,sendSerial, waitSerial, _videoScanTail, rowRepeat);
+            _state.native_height, rect.x, rect.y, rect.w, rect.h, resetHistory,sendSerial, waitSerial, _videoScanTail, rowRepeat,
+            _videoHistory2, _videoHistorySplit);
     }
     if (!success) return fail();
     delayMicroseconds(230); // Match the normal driver's inter-scan settling time.
