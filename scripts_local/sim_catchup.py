@@ -512,15 +512,33 @@ def main(env):
     # device flag; this adds a size-only override ahead of them, so the rest of the
     # X4 Pro profile (buttons, touch, board config) is unchanged. Anchored on the
     # pristine text and kept inside the replacement, per the rules at the top.
+    # The anchor drops the leading '#' so it also matches the "#elif" the
+    # 768x552 patch below leaves, whichever of the two runs first.
     patch(
         src / "EInkDisplay.h",
-        "#if defined(SIMULATOR_DEVICE_X3)\n  static constexpr uint16_t DISPLAY_WIDTH = 792;",
-        "#if defined(SIMULATOR_PANEL_960X540)\n"
+        "if defined(SIMULATOR_DEVICE_X3)\n  static constexpr uint16_t DISPLAY_WIDTH = 792;",
+        "if defined(SIMULATOR_PANEL_960X540)\n"
         "  static constexpr uint16_t DISPLAY_WIDTH = 960;\n"
         "  static constexpr uint16_t DISPLAY_HEIGHT = 540;\n"
         "#elif defined(SIMULATOR_DEVICE_X3)\n  static constexpr uint16_t DISPLAY_WIDTH = 792;",
         "EInkDisplay 960x540 panel option",
         marker="SIMULATOR_PANEL_960X540",
+    )
+
+    # SIMULATOR_PANEL_768X552 does the same for the EEGO Reader A4 (UC8279C,
+    # 768x552). The anchor drops the leading '#' so it matches both the pristine
+    # "#if" and the "#elif" the 960x540 patch leaves, and either order of the
+    # two patches yields a valid chain. Size only: BoardConfig::isEegoA4() stays
+    # false on a host, so the A4's bezel insets and grayscale path are not shown.
+    patch(
+        src / "EInkDisplay.h",
+        "if defined(SIMULATOR_DEVICE_X3)\n  static constexpr uint16_t DISPLAY_WIDTH = 792;",
+        "if defined(SIMULATOR_PANEL_768X552)\n"
+        "  static constexpr uint16_t DISPLAY_WIDTH = 768;\n"
+        "  static constexpr uint16_t DISPLAY_HEIGHT = 552;\n"
+        "#elif defined(SIMULATOR_DEVICE_X3)\n  static constexpr uint16_t DISPLAY_WIDTH = 792;",
+        "EInkDisplay 768x552 panel option",
+        marker="SIMULATOR_PANEL_768X552",
     )
 
     # CrossPoint 1.6.5 replaced the raw UTC-offset setting with real timezones,
