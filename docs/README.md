@@ -59,6 +59,8 @@ buttons (`buttons.md`), what scale does to games (`games-at-scale.md`), how to
 reflash and inspect a device over Wi-Fi with no cable
 (`developer-mode.md`), how the two open bridges are attacked and defended
 (`bridge-security.md`), and what is knowingly unfinished (`open-items.md`).
+The Kpez16 fork keeps its own backlog, apart from upstream's, in
+`fork-backlog.md`.
 
 Four more are narrower but no less load-bearing, and this paragraph did not
 name any of them until the suite started asking: what the glass hides
