@@ -19,7 +19,9 @@
 #include "FirmwareFlasher.h"
 
 namespace {
-constexpr char latestReleaseUrl[] = "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/latest";
+// FORK CHANGE: the fork's releases. Upstream's would replace the fork's firmware
+// (and its apps) with plain CrossPoint on any board upstream also ships.
+constexpr char latestReleaseUrl[] = "https://api.github.com/repos/Kpez16/crossplay/releases/latest";
 }  // namespace
 
 OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {

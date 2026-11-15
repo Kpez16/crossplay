@@ -2,7 +2,8 @@ name: CI (build)
 
 on:
   push:
-    branches: [develop]
+    # FORK CHANGE: also the fork's trunk.
+    branches: [develop, crosspoint-main]
   pull_request:
 
 permissions:
@@ -111,6 +112,9 @@ jobs:
             asset: firmware-eego_a4.bin
           - env: picco
             asset: firmware-picco.bin
+          # FORK CHANGE: the fork's LilyGo T5 S3 env.
+          - env: lilygo_t5s3
+            asset: firmware-lilygo_t5s3.bin
     steps:
       - uses: actions/checkout@v6
         with:
